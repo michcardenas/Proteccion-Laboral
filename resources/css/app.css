@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views';
+@source '../js';
+
+@theme {
+    --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Brand palette: anchored to logo (black mark on white) + slate primary */
+    --color-brand-50: #f6f7f9;
+    --color-brand-100: #eceef2;
+    --color-brand-200: #d5d9e0;
+    --color-brand-300: #b0b7c3;
+    --color-brand-400: #84909f;
+    --color-brand-500: #647082;
+    --color-brand-600: #4f5a6b;
+    --color-brand-700: #404857;
+    --color-brand-800: #383e4a;
+    --color-brand-900: #0f172a;
+    --color-brand-950: #060a14;
+
+    --color-accent-500: #4f46e5;
+    --color-accent-600: #4338ca;
+    --color-accent-700: #3730a3;
+}
+
+@layer base {
+    html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+        font-feature-settings: 'cv11', 'ss01';
+        font-variation-settings: 'opsz' 32;
+    }
+}
+
+@layer utilities {
+    .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 9999px;
+    }
+}
