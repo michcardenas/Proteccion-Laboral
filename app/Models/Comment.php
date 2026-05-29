@@ -15,6 +15,7 @@ class Comment extends Model
         'commentable_id',
         'commentable_type',
         'user_id',
+        'email_ingestion_id',
         'body',
         'visible_cliente',
     ];
@@ -31,5 +32,10 @@ class Comment extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function emailIngestion(): BelongsTo
+    {
+        return $this->belongsTo(EmailIngestion::class);
     }
 }

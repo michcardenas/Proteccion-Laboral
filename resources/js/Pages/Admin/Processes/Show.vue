@@ -4,9 +4,11 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import AiDraftModal from '@/Components/AiDraftModal.vue';
 
 const props = defineProps({
     process: Object,
+    aiTemplates: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -16,8 +18,16 @@ const tabs = [
     { key: 'tablero', label: 'Tablero de etapas' },
     { key: 'detalle', label: 'Detalle' },
     { key: 'tareas', label: 'Tareas' },
+    { key: 'documentos', label: 'Documentos' },
+    { key: 'comentarios', label: 'Comentarios' },
 ];
 const activeTab = ref('tablero');
+
+const showAiModal = ref(false);
+const onAiSaved = ({ kind }) => {
+    activeTab.value = kind === 'comment' ? 'comentarios' : 'documentos';
+    router.reload({ only: ['process'] });
+};
 
 const estadoVariants = {
     abierto: 'blue',
@@ -153,6 +163,16 @@ const isLate = (stage) => {
                         </p>
                     </div>
                     <div class="flex flex-wrap gap-2">
+                        <button
+                            v-if="can('ai.use')"
+                            @click="showAiModal = true"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                            </svg>
+                            Generar borrador IA
+                        </button>
                         <Link
                             v-if="can('processes.update')"
                             :href="route('admin.processes.edit', process.id)"
@@ -380,7 +400,63 @@ const isLate = (stage) => {
                     </li>
                 </ul>
             </section>
+
+            <!-- DOCUMENTOS -->
+            <section v-else-if="activeTab === 'documentos'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <ul class="divide-y divide-slate-100">
+                    <li v-if="!process.documents || !process.documents.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                        Aún no hay documentos. Usa “Generar borrador IA” para crear uno.
+                    </li>
+                    <li
+                        v-for="d in process.documents"
+                        :key="d.id"
+                        class="flex flex-wrap items-center justify-between gap-4 px-6 py-4"
+                    >
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <p class="text-sm font-medium text-slate-900">{{ d.nombre }}</p>
+                                <StatusBadge variant="gray" :label="d.tipo" />
+                                <StatusBadge v-if="d.generado_por_ia" variant="indigo" label="IA" />
+                                <StatusBadge v-if="d.visible_cliente" variant="green" label="visible cliente" />
+                            </div>
+                            <p class="text-xs text-slate-500">
+                                <span v-if="d.subido_por">Por {{ d.subido_por }}</span>
+                                <span v-if="d.created_at"> · {{ formatDateTime(d.created_at) }}</span>
+                            </p>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- COMENTARIOS -->
+            <section v-else-if="activeTab === 'comentarios'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <ul class="divide-y divide-slate-100">
+                    <li v-if="!process.comments || !process.comments.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                        Aún no hay comentarios en este proceso.
+                    </li>
+                    <li
+                        v-for="c in process.comments"
+                        :key="c.id"
+                        class="px-6 py-4"
+                    >
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-sm font-medium text-slate-900">{{ c.user || '—' }}</p>
+                            <StatusBadge v-if="c.visible_cliente" variant="green" label="visible cliente" />
+                            <span v-if="c.created_at" class="text-xs text-slate-500">{{ formatDateTime(c.created_at) }}</span>
+                        </div>
+                        <p class="mt-1 whitespace-pre-line text-sm text-slate-700">{{ c.body }}</p>
+                    </li>
+                </ul>
+            </section>
         </div>
+
+        <AiDraftModal
+            :show="showAiModal"
+            :process="process"
+            :templates="aiTemplates"
+            @close="showAiModal = false"
+            @saved="onAiSaved"
+        />
 
         <ConfirmModal
             :show="showDelete"

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\AiGenerationController;
+use App\Http\Controllers\Admin\GmailIntegrationController;
 use App\Http\Controllers\Admin\ClientAssignmentController;
 use App\Http\Controllers\Admin\ClientContactController;
 use App\Http\Controllers\Admin\ClientController;
@@ -122,6 +124,38 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:stages.complete')
             ->patch('processes/{process}/stages/{stage}/complete', [ProcessStageController::class, 'complete'])
             ->name('processes.stages.complete');
+
+        // === IA ===
+        Route::middleware('permission:ai.use')
+            ->post('processes/{process}/ai/generate', [AiGenerationController::class, 'store'])
+            ->name('processes.ai.generate');
+
+        Route::middleware('permission:ai.use')
+            ->post('processes/{process}/ai/document', [AiGenerationController::class, 'storeAsDocument'])
+            ->name('processes.ai.document');
+
+        Route::middleware('permission:ai.use')
+            ->post('processes/{process}/ai/comment', [AiGenerationController::class, 'storeAsComment'])
+            ->name('processes.ai.comment');
+
+        Route::middleware('permission:ai.use')
+            ->get('ai/playground', [AiGenerationController::class, 'playground'])
+            ->name('ai.playground');
+
+        Route::middleware('permission:ai.usage_view')
+            ->get('ai/usage', [AiGenerationController::class, 'index'])
+            ->name('ai.usage');
+
+        // === Gmail ===
+        Route::middleware('role:director')
+            ->prefix('integrations/gmail')
+            ->name('integrations.gmail.')
+            ->group(function () {
+                Route::get('status', [GmailIntegrationController::class, 'status'])->name('status');
+                Route::get('connect', [GmailIntegrationController::class, 'connect'])->name('connect');
+                Route::get('callback', [GmailIntegrationController::class, 'callback'])->name('callback');
+                Route::post('disconnect', [GmailIntegrationController::class, 'disconnect'])->name('disconnect');
+            });
     });
 
 require __DIR__.'/auth.php';

@@ -6,14 +6,16 @@ Ubicación: `app/Services/AiService.php`
 
 ```php
 public function generateDraft(string $prompt, ?string $systemPrompt = null, array $options = []): array
-public function classifyEmail(string $subject, string $body, array $context = []): array
+public function classifyEmail(array $payload, array $context = []): array
 public function estimateCost(int $inputTokens, int $outputTokens, ?string $model = null): float
 ```
 
+> **Cambio de firma 2026-05-27 (D1-M1):** `classifyEmail()` ya no recibe `subject` + `body` posicionales; ahora toma un único array `$payload` con `from`, `subject`, `body_text`, `attachments`. La forma de retorno también cambió a la estructura del dominio legal (ver abajo). Si tienes código que aún usa la firma anterior, actualízalo.
+
 ### Estado actual
 - `generateDraft()` → **implementado** (golpea `POST /v1/messages` real, devuelve texto + usage).
-- `classifyEmail()` → lanza `\BadMethodCallException('not_implemented')`. Mockear en tests.
-- `estimateCost()` → lanza `\BadMethodCallException('not_implemented')`. Mockear en tests.
+- `classifyEmail()` → **implementado**. Carga `resources/prompts/classify_email.md`, llama a Claude con `temperature: 0.0`, parsea JSON estricto (admite envoltura ```json…```) y fuerza `action = "requiere_revision_humana"` si `confidence < 0.6` o la acción no es válida.
+- `estimateCost()` → **implementado**. Tabla `AiService::PRICING` por modelo (Sonnet/Opus/Haiku 4.x). Lanza `\InvalidArgumentException` si el modelo no está tarificado.
 
 ### Forma de retorno
 
@@ -31,15 +33,39 @@ public function estimateCost(int $inputTokens, int $outputTokens, ?string $model
 ```
 
 **`classifyEmail()`**
+
+Input:
 ```php
 [
-    'category'           => string,    // p.ej. "nuevo_caso", "seguimiento", "documento", ...
-    'confidence'         => float,     // 0.0 - 1.0
-    'matched_process_id' => int|null,  // null si no hay match
-    'extracted'          => array,     // datos estructurados (cliente, fechas, refs, ...)
-    'usage'              => ['input_tokens' => int, 'output_tokens' => int],
+    'from'        => string,
+    'subject'     => string,
+    'body_text'   => string,
+    'attachments' => string[],   // nombres o tipos MIME
+]
+// $context opcional: ['known_processes' => array<int, array{code,client_name,...}>]
+```
+
+Output:
+```php
+[
+    'action'           => string,    // ver AiService::CLASSIFY_ACTIONS
+    'confidence'       => float,     // 0.0 - 1.0
+    'process_code'?    => string,    // si hay match con known_processes
+    'client_name'?     => string,
+    'service_type'?    => string,
+    'stage_hint'?      => string,    // etapa procesal sugerida
+    'summary'          => string,    // resumen 1-2 frases
+    'extracted_fields' => [
+        'dates'      => string[],
+        'amounts'    => string[],
+        'references' => string[],
+        'people'     => string[],
+    ],
+    'usage' => ['input_tokens' => int, 'output_tokens' => int],
 ]
 ```
+
+Acciones válidas: `nuevo_caso`, `seguimiento_proceso`, `documento_recibido`, `comunicacion_cliente`, `spam_o_irrelevante`, `requiere_revision_humana`.
 
 **`estimateCost()`** → `float` (USD).
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\AiGenerationController;
 use App\Http\Requests\Admin\StoreProcessRequest;
 use App\Http\Requests\Admin\UpdateProcessRequest;
 use App\Models\Client;
@@ -147,6 +148,8 @@ class ProcessController extends Controller
             'coordinador:id,name,email',
             'stages' => fn ($q) => $q->with(['responsable:id,name', 'checklistResponses.completador:id,name'])->orderBy('orden'),
             'tasks' => fn ($q) => $q->with('asignado:id,name')->latest(),
+            'documents' => fn ($q) => $q->with('uploader:id,name')->latest(),
+            'comments' => fn ($q) => $q->with('user:id,name')->latest(),
         ]);
 
         $totalChecklist = $process->stages->sum(fn ($s) => $s->checklistResponses->count());
@@ -205,12 +208,30 @@ class ProcessController extends Controller
                     'fecha_limite' => $t->fecha_limite?->format('Y-m-d'),
                     'asignado' => $t->asignado?->name,
                 ]),
+                'documents' => $process->documents->map(fn ($d) => [
+                    'id' => $d->id,
+                    'nombre' => $d->nombre,
+                    'tipo' => $d->tipo,
+                    'mime' => $d->mime,
+                    'generado_por_ia' => (bool) $d->generado_por_ia,
+                    'visible_cliente' => (bool) $d->visible_cliente,
+                    'subido_por' => $d->uploader?->name,
+                    'created_at' => $d->created_at?->toIso8601String(),
+                ]),
+                'comments' => $process->comments->map(fn ($c) => [
+                    'id' => $c->id,
+                    'body' => $c->body,
+                    'visible_cliente' => (bool) $c->visible_cliente,
+                    'user' => $c->user?->name,
+                    'created_at' => $c->created_at?->toIso8601String(),
+                ]),
                 'progress' => [
                     'total' => $totalChecklist,
                     'completed' => $completedChecklist,
                     'percent' => $totalChecklist > 0 ? round(($completedChecklist / $totalChecklist) * 100) : 0,
                 ],
             ],
+            'aiTemplates' => AiGenerationController::ALLOWED_TEMPLATES,
         ]);
     }
 

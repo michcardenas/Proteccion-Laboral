@@ -13,6 +13,7 @@ class Document extends Model
 
     protected $fillable = [
         'process_id',
+        'email_ingestion_id',
         'process_stage_id',
         'task_id',
         'client_id',
@@ -36,6 +37,11 @@ class Document extends Model
     public function process(): BelongsTo
     {
         return $this->belongsTo(Process::class);
+    }
+
+    public function emailIngestion(): BelongsTo
+    {
+        return $this->belongsTo(EmailIngestion::class);
     }
 
     public function processStage(): BelongsTo
