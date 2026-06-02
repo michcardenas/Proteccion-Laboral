@@ -43,7 +43,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         'dashboard.executive', 'dashboard.operational',
 
-        'ai.use', 'ai.usage_view',
+        'ai.use', 'ai.usage_view', 'ai.config',
 
         'portal.access',
     ];
