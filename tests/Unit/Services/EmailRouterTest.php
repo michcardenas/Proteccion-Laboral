@@ -11,6 +11,7 @@ use App\Models\ServiceType;
 use App\Models\User;
 use App\Services\EmailRouter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class EmailRouterTest extends TestCase
@@ -63,6 +64,17 @@ class EmailRouterTest extends TestCase
 
     public function test_nuevo_caso_with_match_and_high_confidence_creates_process(): void
     {
+        // El alta de un caso nuevo dispara la generación automática del resumen IA;
+        // fakeamos la respuesta de Anthropic para que el test sea determinista.
+        Http::fake([
+            '*' => Http::response([
+                'content' => [['type' => 'text', 'text' => 'Situación. Resumen de prueba.']],
+                'model' => 'claude-sonnet-4-6',
+                'stop_reason' => 'end_turn',
+                'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+            ]),
+        ]);
+
         User::factory()->create(['is_active' => true]); // autor para el comentario
         $client = Client::factory()->create(['razon_social' => 'Acme Corp SAS']);
         $service = $this->makeServiceType('Proceso Ordinario Laboral');
@@ -72,7 +84,8 @@ class EmailRouterTest extends TestCase
             'confidence' => 0.9,
             'client_name' => 'Acme Corp',
             'service_type' => 'Proceso Ordinario',
-            'summary' => 'Despido sin justa causa',
+            'title' => 'Despido injustificado - Juan Pérez',
+            'summary' => 'Cliente reporta despido sin justa causa de un trabajador, solicita representación.',
         ]);
 
         $status = $this->router()->route($ing);
@@ -81,9 +94,50 @@ class EmailRouterTest extends TestCase
         $this->assertDatabaseHas('processes', [
             'client_id' => $client->id,
             'service_type_id' => $service->id,
+            // El título corto viene del campo `title` de la IA, no del summary largo.
+            'titulo' => 'Despido injustificado - Juan Pérez',
         ]);
         $ing->refresh();
         $this->assertNotNull($ing->process_id);
+
+        // El resumen ejecutivo quedó persistido automáticamente al crear el caso.
+        $this->assertSame('Situación. Resumen de prueba.', $ing->process->resumen_ia);
+        $this->assertNotNull($ing->process->resumen_ia_generado_at);
+    }
+
+    public function test_nuevo_caso_without_title_falls_back_to_subject(): void
+    {
+        Http::fake([
+            '*' => Http::response([
+                'content' => [['type' => 'text', 'text' => 'Resumen.']],
+                'model' => 'claude-sonnet-4-6',
+                'stop_reason' => 'end_turn',
+                'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+            ]),
+        ]);
+
+        User::factory()->create(['is_active' => true]);
+        $client = Client::factory()->create(['razon_social' => 'Acme Corp SAS']);
+        $this->makeServiceType('Proceso Ordinario Laboral');
+
+        // Sin `title`: el título del proceso debe caer al asunto del correo.
+        $ing = $this->makeIngestion(
+            [
+                'action' => 'nuevo_caso',
+                'confidence' => 0.9,
+                'client_name' => 'Acme Corp',
+                'service_type' => 'Proceso Ordinario',
+                'summary' => 'Resumen largo del correo entrante.',
+            ],
+            ['subject' => 'Caso laboral urgente'],
+        );
+
+        $this->router()->route($ing);
+
+        $this->assertDatabaseHas('processes', [
+            'client_id' => $client->id,
+            'titulo' => 'Caso laboral urgente',
+        ]);
     }
 
     public function test_nuevo_caso_low_confidence_goes_to_needs_review(): void

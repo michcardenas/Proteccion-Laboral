@@ -6,8 +6,10 @@ use App\Http\Controllers\Admin\ClientAssignmentController;
 use App\Http\Controllers\Admin\ClientContactController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\ContractController;
+use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\ProcessController;
 use App\Http\Controllers\Admin\ProcessStageController;
+use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
@@ -98,6 +100,8 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:processes.view|processes.view_assigned')->group(function () {
             Route::get('processes', [ProcessController::class, 'index'])->name('processes.index');
             Route::get('processes/{process}', [ProcessController::class, 'show'])->name('processes.show');
+            // Abrir/descargar un documento del proceso (adjunto de correo, borrador IA o enlace de Drive).
+            Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
         });
 
         Route::middleware('permission:processes.create')->group(function () {
@@ -139,6 +143,10 @@ Route::middleware(['auth', 'verified'])
             ->name('processes.ai.comment');
 
         Route::middleware('permission:ai.use')
+            ->post('processes/{process}/ai/summary', [ProcessController::class, 'generateSummary'])
+            ->name('processes.ai.summary');
+
+        Route::middleware('permission:ai.use')
             ->get('ai/playground', [AiGenerationController::class, 'playground'])
             ->name('ai.playground');
 
@@ -156,6 +164,31 @@ Route::middleware(['auth', 'verified'])
                 Route::get('callback', [GmailIntegrationController::class, 'callback'])->name('callback');
                 Route::post('disconnect', [GmailIntegrationController::class, 'disconnect'])->name('disconnect');
             });
+
+        // === Tareas (Tablero Kanban) ===
+        Route::middleware('permission:tasks.view')->group(function () {
+            Route::get('tasks/board', [TaskController::class, 'board'])->name('tasks.board');
+            // Tablero Kanban acotado a un solo proceso.
+            Route::get('processes/{process}/board', [TaskController::class, 'board'])->name('processes.board');
+            Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+        });
+
+        Route::middleware('permission:tasks.create')
+            ->post('tasks', [TaskController::class, 'store'])
+            ->name('tasks.store');
+
+        Route::middleware('permission:tasks.update')
+            ->patch('tasks/{task}', [TaskController::class, 'update'])
+            ->name('tasks.update');
+
+        // Adjuntos de Google Drive en tareas
+        Route::middleware('permission:documents.upload')
+            ->post('tasks/{task}/attachments', [TaskController::class, 'storeAttachment'])
+            ->name('tasks.attachments.store');
+
+        Route::middleware('permission:documents.delete')
+            ->delete('tasks/{task}/attachments/{document}', [TaskController::class, 'destroyAttachment'])
+            ->name('tasks.attachments.destroy');
     });
 
 require __DIR__.'/auth.php';

@@ -1,0 +1,246 @@
+[
+    {
+        "name": "spam_calendar_invitacion",
+        "nota": "Invitación de Google Calendar enviada por una abogada del despacho. Patrón ~40% del tráfico real.",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "abogada.lopez@proteccionlaboral.co",
+            "subject": "Invitación: Socialización trabajadores Clínica Vital mar 9 de jun de 2026 11am - 12:30pm (COT) (Abogada María López Protección Laboral)",
+            "body_text": "Socialización trabajadores Clínica Vital\nUnirme con Google Meet: https://meet.google.com/abc-defg-hij\nMaría López te ha invitado a asistir al evento llamado Socialización trabajadores Clínica Vital el martes 9 de jun de 2026 ⋅ 11am – 12:30pm (Hora estándar de Colombia).\nUnirme con Google Meet\nmeet.google.com/abc-defg-hij",
+            "attachments": ["invite.ics"]
+        }
+    },
+    {
+        "name": "spam_calendar_rechazado",
+        "nota": "Respuesta de calendario (rechazo) que menciona un cliente en el título del evento.",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "abogada.lopez@proteccionlaboral.co",
+            "subject": "Rechazado: AUDIENCIA OFTALMOLOGOS vie 12 de jun de 2026 3:30pm - 5:30pm (COT) (Abogada Sandra Mora Protección Laboral)",
+            "body_text": "AUDIENCIA OFTALMOLOGOS\nMaría López ha rechazado esta invitación.\nUnirme con Google Meet\nEnlace de la reunión meet.google.com/xyz-uvwq-rst\nUnirse por teléfono (CO) +57 601 8956580 PIN: 878906460",
+            "attachments": ["invite.ics"]
+        }
+    },
+    {
+        "name": "spam_rebote_mailer_daemon",
+        "nota": "Rebote de un correo disciplinario enviado por el despacho a un trabajador.",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "mailer-daemon@googlemail.com",
+            "subject": "Delivery Status Notification (Failure)",
+            "body_text": "No se ha encontrado la dirección\nTu mensaje no se ha entregado a trabajador123@gmail.com porque no se ha encontrado la dirección o esta no puede recibir correo.\nMÁS INFORMACIÓN\nLa respuesta fue: 550 5.1.1 The email account that you tried to reach does not exist.",
+            "attachments": []
+        }
+    },
+    {
+        "name": "spam_marketing_newsletter",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "no-reply@email.boletines.com",
+            "subject": "5 formas de aprovechar nuestra plataforma (2/5)",
+            "body_text": "Imagina lo que podrías hacer con unas horas más en tu día. Descubre 5 formas en que nuestra plataforma puede trabajar contigo. ¡La vida puede ser ocupada! Haz clic aquí para empezar tu prueba gratuita.",
+            "attachments": []
+        }
+    },
+    {
+        "name": "spam_factura_electronica",
+        "nota": "Factura emitida por el propio despacho vía Siigo; copia automática al buzón.",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "factura@transaccionesco.siigo.net",
+            "subject": "900313073;PROTECCION LABORAL SOLUCIONES LEGALES SAS;FE1409;01;PROTECCION LABORAL SOLUCIONES LEGALES S A S",
+            "body_text": "Comprobante elaborado y enviado a través de PROTECCION LABORAL SOLUCIONES LEGALES SAS\n¡Hola!\nPROTECCION LABORAL SOLUCIONES LEGALES SAS te informa se generó la siguiente factura: Número FE1409.\nDescarga el documento adjunto.",
+            "attachments": ["FE1409.pdf", "FE1409.xml"]
+        }
+    },
+    {
+        "name": "spam_notificacion_bancaria",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "portalempresarial@bancoejemplo.com",
+            "subject": "Notificacion de Pago",
+            "body_text": "Usted ha recibido una transferencia a su cuenta con las siguientes caracteristicas:\nTipo de Nota Contable: Crédito\nValor: $ 6.842.273,00\nFecha de Movimiento: 01/06/2026\nHora de Movimiento: 12:26",
+            "attachments": []
+        }
+    },
+    {
+        "name": "spam_bot_resumen_reunion",
+        "nota": "Resumen automático de un bot de reuniones; menciona un caso real pero no aporta al expediente.",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "executiveassistant@e.read.ai",
+            "subject": "🗓 Seguimiento revisión caso colaborador en June 5, 2026 | Read Informe de la Reunión",
+            "body_text": "La llamada se centró en contactar a la coordinadora. Durante la conversación se informó que la doctora no podía unirse y se acordó mover la sesión al martes. Un participante indicó que ya había escrito por el chat. Duración: 12 minutos. Participantes: 3.",
+            "attachments": []
+        }
+    },
+    {
+        "name": "spam_alerta_seguridad",
+        "expect": { "action": "spam_o_irrelevante" },
+        "input": {
+            "from": "no-reply@accounts.google.com",
+            "subject": "Alerta de seguridad",
+            "body_text": "Nuevo inicio de sesión en Windows\nautomatizacion@proteccionlaboral.co\nHemos detectado un nuevo inicio de sesión en tu cuenta de Google en un dispositivo Windows. Si has sido tú, no es necesario que hagas nada.",
+            "attachments": []
+        }
+    },
+    {
+        "name": "seguimiento_notificacion_judicial_directa",
+        "nota": "Notificación de la rama judicial con radicación; el cliente tiene proceso judicial abierto (PL-2026-0015).",
+        "expect": {
+            "action": "seguimiento_proceso",
+            "process_code": "PL-2026-0015",
+            "references_contains": "520013109006 2026 00071-01"
+        },
+        "input": {
+            "from": "secsptsuppasto@cendoj.ramajudicial.gov.co",
+            "subject": "NOTIFICACION DECISION 2DA INSTANCIA - Acción Constitucional. Exp: 520013109006 2026 00071-01 - M.P. DRA. MIRTHA LUCIA CEBALLOS VALENCIA.",
+            "body_text": "San Juan de Pasto, 3 de junio de 2026.\nOficio SSP 1418\n\nMagistrada Ponente: Mirtha Lucía Ceballos Valencia\nSentencia de Tutela No: 00124\nRadicación: 520013109006 2026 00071-01\nAccionante: Edison Mavisoy\nAccionado: CLINICA VITAL IPS SAS y otros\n\nPor medio del presente me permito notificarles la decisión de segunda instancia proferida dentro de la acción de tutela de la referencia. Se adjunta la providencia y la aclaración de voto.",
+            "attachments": ["008AclaracionVoto.pdf", "009Decision.pdf"]
+        }
+    },
+    {
+        "name": "seguimiento_cliente_reenvia_judicial",
+        "nota": "El cliente reenvía (RV:) una notificación judicial. Identificación por dominio del remitente.",
+        "expect": {
+            "action": "seguimiento_proceso",
+            "process_code": "PL-2026-0015"
+        },
+        "input": {
+            "from": "recepcion@clinicavitalips.com",
+            "subject": "RV: NOTIFICACION DECISION 2DA INSTANCIA - Acción Constitucional. Exp: 520013109006 2026 00071-01 - M.P. DRA. MIRTHA LUCIA CEBALLOS VALENCIA.",
+            "body_text": "Buenos días\n\nPara su conocimiento y gestión\n\nCordialmente,\n\nKaren Castillo\nCel. 3188280707\nwww.clinicavitalips.com\n\n________________________________\nDe: Secretaría Sala Penal Tribunal Superior <secsptsuppasto@cendoj.ramajudicial.gov.co>\nEnviado: miércoles, 3 de junio de 2026 17:05\nAsunto: NOTIFICACION DECISION 2DA INSTANCIA - Acción Constitucional. Exp: 520013109006 2026 00071-01\n\nMagistrada Ponente: Mirtha Lucía Ceballos Valencia\nRadicación: 520013109006 2026 00071-01\nAccionante: Edison Mavisoy\nSe notifica la decisión de segunda instancia dentro de la acción de tutela de la referencia.",
+            "attachments": ["008AclaracionVoto.pdf", "009Decision.pdf"]
+        }
+    },
+    {
+        "name": "nuevo_caso_derechos_de_peticion",
+        "nota": "Cliente reporta caso NUEVO de un trabajador con derechos de petición y términos de vencimiento. Debe auto-crear proceso (confidence >= 0.7).",
+        "expect": {
+            "action": "nuevo_caso",
+            "client_name": "CLINICA VITAL IPS SAS",
+            "service_type": "Servicio por Evento",
+            "min_confidence": 0.7
+        },
+        "input": {
+            "from": "gestionhumana@clinicavitalips.com",
+            "subject": "RV: CASO CESAR MENDOZA",
+            "body_text": "Cordial saludo doctora,\n\nDe acuerdo con lo conversado el día 26/05/2026, remito los anexos relacionados con el caso de CESAR MENDOZA, quien presentó derechos de petición dirigidos a la Dra. Pilar y a la Dra. Carolina.\nEn ese sentido, comparto dos carpetas independientes, cada una con la información correspondiente, teniendo en cuenta que uno de los derechos de petición incluye dos solicitudes adicionales.\nLos términos establecidos son los siguientes:\n- Dra. Pilar: vencimiento el 12 de junio.\n- Dra. Carolina: vencimiento el 11 de junio.\n\nQuedo atenta a sus indicaciones.\n\nCordialmente,\nKaterine Aguirre Ruiz\nCoordinadora Gestión Humana\nwww.clinicavitalips.com",
+            "attachments": ["CARPETA PILAR.zip", "CARPETA CAROLINA.zip"]
+        }
+    },
+    {
+        "name": "revision_empresa_desconocida",
+        "nota": "Lead comercial: empresa que NO es cliente pide cotización. Nunca debe ser nuevo_caso.",
+        "expect": { "action": "requiere_revision_humana" },
+        "input": {
+            "from": "gerencia@inversionesdelnorte.com",
+            "subject": "Cotización asesoría laboral",
+            "body_text": "Buenas tardes,\n\nSomos Inversiones del Norte SAS, una empresa de logística con 85 empleados en Bogotá. Estamos interesados en conocer sus servicios de asesoría laboral y los costos de un acompañamiento mensual. ¿Podrían enviarnos una propuesta?\n\nGracias,\nJorge Martínez\nGerente General",
+            "attachments": []
+        }
+    },
+    {
+        "name": "documento_con_codigo_explicito",
+        "nota": "Cliente envía documentos citando el código del proceso.",
+        "expect": {
+            "action": "documento_recibido",
+            "process_code": "PL-2026-0012"
+        },
+        "input": {
+            "from": "rrhh@distribolivar.com.co",
+            "subject": "Periodo 2020-04 - proceso PL-2026-0012",
+            "body_text": "Buenos días Doctora,\n\nEn relación con el proceso PL-2026-0012, me permito enviar la información que recopilé para la depuración del período 2020-04. En este caso se presentan dos situaciones: existen cuatro personas que ya no laboraban en la empresa para ese período y dos registros con diferencias en el IBC reportado.\n\nAdjunto las planillas y soportes.\n\nCordialmente,\nAna Beltrán\nRecursos Humanos\nDISTRIBUCIONES BOLIVAR SAS",
+            "attachments": ["Planilla_2020-04.xlsx", "Soportes_depuracion.pdf"]
+        }
+    },
+    {
+        "name": "documento_sin_codigo_cliente_unico",
+        "nota": "Cliente con UN solo proceso abierto envía documentos sin citar código. Match por dominio + unicidad.",
+        "expect": {
+            "action": "documento_recibido",
+            "process_code": "PL-2026-0023"
+        },
+        "input": {
+            "from": "talentohumano@oftalmosur.com",
+            "subject": "Re: SOLICITUD DOCUMENTACION PARA DIAGNOSTICO",
+            "body_text": "Hola doctora buen día, envío información solicitada. Quedo atenta.\n\nCLAVE CERTIFICADO DE ARL: 901555666\n\nYulieth Andrade\nCoordinadora administrativa y gestión humana\nOftalmólogos del Sur SAS",
+            "attachments": ["Organigrama.pdf", "RIT_actualizado.docx", "Certificado_ARL.pdf"]
+        }
+    },
+    {
+        "name": "comunicacion_consulta_cliente",
+        "nota": "Cliente hace una pregunta jurídica puntual dentro de su asesoría permanente; sin adjuntos.",
+        "expect": {
+            "action": "comunicacion_cliente",
+            "process_code": "PL-2026-0012"
+        },
+        "input": {
+            "from": "tesoreria@distribolivar.com.co",
+            "subject": "RE: CONCEPTO JURIDICO AUXILIO EDUCATIVO",
+            "body_text": "Cordial saludo doctora,\n\nEn el contrato no refiere nada sobre este auxilio, esto se paga solamente a los trabajadores que tengan niños entre los 6-14 años, y nos envían el registro civil al inicio de año. ¿En ese caso estaríamos obligados a pagarlo también a quien lo solicite con hijos mayores? Quedamos atentos a su concepto.\n\nGracias,\nTesorería\nDISTRIBUCIONES BOLIVAR SAS",
+            "attachments": []
+        }
+    },
+    {
+        "name": "seguimiento_interno_plan_trabajo",
+        "nota": "Copia (CC) de un correo enviado por una abogada del despacho al cliente. Nunca nuevo_caso.",
+        "expect": {
+            "action": "seguimiento_proceso",
+            "process_code": "PL-2026-0019"
+        },
+        "input": {
+            "from": "abogada.lopez@proteccionlaboral.co",
+            "subject": "PLAN DE TRABAJO COLCHONES EL DESCANSO SAS",
+            "body_text": "Cordial saludo,\n\nPor medio del presente remitimos plan de trabajo durante ejecución del contrato de prestación de servicios con visita semanal de dos horas, programada de acuerdo con la disponibilidad y necesidades de la compañía.\n\nCordialmente,\nMaría López\nAbogada\nProtección Laboral",
+            "attachments": ["Plan_de_trabajo_junio.pdf"]
+        }
+    },
+    {
+        "name": "revision_interno_disciplinario_sin_cliente",
+        "nota": "Correo del despacho a un trabajador (gmail personal) sin pista del cliente: imposible ubicar proceso.",
+        "expect": { "action": "requiere_revision_humana" },
+        "input": {
+            "from": "abogada.lopez@proteccionlaboral.co",
+            "subject": "COMUNICACIÓN DE APERTURA DE PROCESO DISCIPLINARIO",
+            "body_text": "Cordial saludo,\n\nPor medio del presente correo remitimos adjunta la comunicación de apertura de proceso disciplinario para los fines pertinentes.\n\nCordialmente,\nMaría López\nAbogada\nProtección Laboral",
+            "attachments": ["WhatsApp Image 2026-06-04 at 5.51.08 PM.jpeg"]
+        }
+    },
+    {
+        "name": "revision_docusign_contrato",
+        "nota": "Notificación de Docusign con un contrato para firma; relevante pero sin proceso claro.",
+        "expect": { "action": "requiere_revision_humana" },
+        "input": {
+            "from": "dse@eumail.docusign.net",
+            "subject": "Complete con Docusign: 20260603 - Contrato Clinica Vital - Proveedor.docx.pdf, ANEXO COT-COM-201-26...",
+            "body_text": "Alejandra Muñoz le ha enviado un documento para que lo revise y firme.\nRevisar documentos\nAlejandra Muñoz\nalejandra.munoz@proveedorexterno.com\nComplete con Docusign: 20260603 - Contrato Clinica Vital - Proveedor.docx.pdf",
+            "attachments": []
+        }
+    },
+    {
+        "name": "documento_acta_descargos_afinidad_tematica",
+        "nota": "Cliente con DOS procesos (asesoría 0007 y judicial 0015) envía acta de descargos: tema disciplinario → asesoría permanente.",
+        "expect": {
+            "action": "documento_recibido",
+            "process_code": "PL-2026-0007"
+        },
+        "input": {
+            "from": "gestionhumana@clinicavitalips.com",
+            "subject": "RE: Solicitud de descargos y cambio de profesional – Auxiliar de Enfermería",
+            "body_text": "Doctoras les comparto el acta de descargos de Wendy, dentro de la cual se tiene la idea de dejar solo el llamado de atención dentro de la decisión. Quedo atenta a sus indicaciones.\n\nCordialmente,\nKaterine Aguirre Ruiz\nCoordinadora Gestión Humana\nwww.clinicavitalips.com",
+            "attachments": ["Acta_descargos_Wendy.pdf"]
+        }
+    },
+    {
+        "name": "revision_ambiguo_dos_procesos",
+        "nota": "Cliente con dos procesos abiertos escribe sin especificar tema: ambiguo, debe ir a revisión.",
+        "expect": { "action": "requiere_revision_humana" },
+        "input": {
+            "from": "gerencia@clinicavitalips.com",
+            "subject": "Re: Comunicación",
+            "body_text": "Perfecto, quiero que avancemos, hagamos lo necesario por favor. ¿Me puede llamar hoy para revisar el caso?\n\nGracias\n\nEnviado desde mi iPhone",
+            "attachments": []
+        }
+    }
+]

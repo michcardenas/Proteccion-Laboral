@@ -8,6 +8,14 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 const page = usePage();
 const sidebarOpen = ref(false);
 
+// Colapso del sidebar en escritorio (persistido en localStorage).
+const collapsed = ref(typeof window !== 'undefined' && localStorage.getItem('sidebar-collapsed') === '1');
+watch(collapsed, (v) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('sidebar-collapsed', v ? '1' : '0');
+    }
+});
+
 const flashSuccess = computed(() => page.props.flash?.success);
 const flashError = computed(() => page.props.flash?.error);
 
@@ -36,11 +44,15 @@ watch(() => page.url, () => { sidebarOpen.value = false; });
             class="fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-out lg:translate-x-0"
             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
         >
-            <AppSidebar @close="sidebarOpen = false" />
+            <AppSidebar
+                :collapsed="collapsed"
+                @close="sidebarOpen = false"
+                @toggle-collapse="collapsed = !collapsed"
+            />
         </div>
 
         <!-- Main column -->
-        <div class="lg:pl-72">
+        <div class="transition-[padding] duration-200 ease-out" :class="collapsed ? 'lg:pl-20' : 'lg:pl-72'">
             <!-- Topbar -->
             <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur">
                 <div class="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">

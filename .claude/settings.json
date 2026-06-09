@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l app/Http/Controllers/Admin/ProcessController.php)",
+      "Bash(npm run *)",
+      "Bash(php -l app/Http/Controllers/Admin/TaskController.php)",
+      "Bash(php -l app/Services/ProcessSummaryService.php)",
+      "Bash(php -l app/Services/EmailRouter.php)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(php -l app/Http/Controllers/Admin/DocumentController.php)"
+    ]
+  }
+}
