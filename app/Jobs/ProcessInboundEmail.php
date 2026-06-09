@@ -40,7 +40,15 @@ class ProcessInboundEmail implements ShouldQueue
                     'body_text' => $ingestion->body_text ?? '',
                     'attachments' => $this->attachmentFilenames($ingestion),
                 ],
-                ['known_processes' => $this->knownProcesses()],
+                [
+                    'known_processes' => $this->knownProcesses(),
+                    'known_clients' => $this->knownClients(),
+                    'known_service_types' => \App\Models\ServiceType::query()
+                        ->where('es_activo', true)
+                        ->orderBy('nombre')
+                        ->pluck('nombre')
+                        ->all(),
+                ],
             );
 
             $ingestion->ai_classification = $classification;
@@ -99,6 +107,26 @@ class ProcessInboundEmail implements ShouldQueue
      *
      * @return array<int, array{code: string, client_name: ?string, service_type: ?string}>
      */
+    /**
+     * Clientes activos para que la IA haga match por dominio/razón social.
+     * Solo `estado = activo`: los prospectos no deben generar casos automáticos.
+     *
+     * @return array<int, array{razon_social: string, nit: ?string, email: ?string}>
+     */
+    protected function knownClients(): array
+    {
+        return \App\Models\Client::query()
+            ->where('estado', 'activo')
+            ->orderBy('razon_social')
+            ->get(['razon_social', 'nit', 'email'])
+            ->map(fn ($c) => [
+                'razon_social' => $c->razon_social,
+                'nit' => $c->nit,
+                'email' => $c->email,
+            ])
+            ->all();
+    }
+
     protected function knownProcesses(): array
     {
         return \App\Models\Process::query()

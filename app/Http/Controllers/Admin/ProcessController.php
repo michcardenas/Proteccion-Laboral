@@ -10,8 +10,11 @@ use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Process;
 use App\Models\ServiceType;
+use App\Models\Task;
 use App\Models\User;
 use App\Services\ProcessService;
+use App\Services\ProcessSummaryService;
+use Spatie\Activitylog\Models\Activity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -155,12 +158,47 @@ class ProcessController extends Controller
         $totalChecklist = $process->stages->sum(fn ($s) => $s->checklistResponses->count());
         $completedChecklist = $process->stages->sum(fn ($s) => $s->checklistResponses->where('completado', true)->count());
 
+        // Historial = actividad del proceso + actividad de sus tarjetas del Kanban.
+        $processActivities = $process->activities()
+            ->with('causer:id,name')
+            ->get()
+            ->map(fn ($a) => ['tipo' => 'proceso', 'act' => $a]);
+
+        $taskActivities = collect();
+        if ($process->tasks->isNotEmpty()) {
+            $taskActivities = Activity::query()
+                ->where('subject_type', (new Task)->getMorphClass())
+                ->whereIn('subject_id', $process->tasks->pluck('id'))
+                ->with('causer:id,name')
+                ->get()
+                ->map(fn ($a) => ['tipo' => 'tarea', 'act' => $a]);
+        }
+
+        $historial = $processActivities->concat($taskActivities)
+            // Más reciente primero; el id desempata eventos del mismo segundo.
+            ->sortByDesc(fn ($x) => [$x['act']->created_at?->getTimestamp() ?? 0, $x['act']->id])
+            ->values();
+
+        // Resolver IDs de usuario (líder/apoderado/asignado) a nombres legibles.
+        $userIds = $historial->flatMap(function ($x) {
+            $attrs = $x['act']->properties->get('attributes', []);
+            $old = $x['act']->properties->get('old', []);
+
+            return collect(['abogado_lider_id', 'apoderado_id', 'asignado_a'])
+                ->flatMap(fn ($f) => [$attrs[$f] ?? null, $old[$f] ?? null]);
+        })->filter()->unique()->values();
+
+        $userNames = User::whereIn('id', $userIds)->pluck('name', 'id');
+        $tasksById = $process->tasks->keyBy('id');
+
         return Inertia::render('Admin/Processes/Show', [
             'process' => [
                 'id' => $process->id,
                 'codigo' => $process->codigo,
                 'titulo' => $process->titulo,
                 'descripcion' => $process->descripcion,
+                'resumen_ia' => $process->resumen_ia,
+                'resumen_ia_generado_at' => $process->resumen_ia_generado_at?->toIso8601String(),
                 'estado' => $process->estado,
                 'fecha_apertura' => $process->fecha_apertura?->format('Y-m-d'),
                 'fecha_cierre' => $process->fecha_cierre?->format('Y-m-d'),
@@ -213,6 +251,7 @@ class ProcessController extends Controller
                     'nombre' => $d->nombre,
                     'tipo' => $d->tipo,
                     'mime' => $d->mime,
+                    'url' => route('admin.documents.download', $d->id),
                     'generado_por_ia' => (bool) $d->generado_por_ia,
                     'visible_cliente' => (bool) $d->visible_cliente,
                     'subido_por' => $d->uploader?->name,
@@ -230,9 +269,65 @@ class ProcessController extends Controller
                     'completed' => $completedChecklist,
                     'percent' => $totalChecklist > 0 ? round(($completedChecklist / $totalChecklist) * 100) : 0,
                 ],
+                'historial' => $historial->map(fn ($x) => [
+                    'id' => $x['tipo'].'-'.$x['act']->id,
+                    'tipo' => $x['tipo'],
+                    'evento' => $x['act']->event,
+                    'descripcion' => $x['act']->description,
+                    'objeto' => $x['tipo'] === 'tarea'
+                        ? ($x['act']->properties->get('attributes', [])['titulo'] ?? $tasksById->get($x['act']->subject_id)?->titulo)
+                        : null,
+                    'causer' => $x['act']->causer?->name,
+                    'cambios' => $this->formatActivityChanges($x['act'], $userNames),
+                    'created_at' => $x['act']->created_at?->toIso8601String(),
+                ]),
             ],
             'aiTemplates' => AiGenerationController::ALLOWED_TEMPLATES,
         ]);
+    }
+
+    /**
+     * Convierte las propiedades de una actividad en una lista legible de cambios
+     * (campo, valor anterior, valor nuevo), resolviendo IDs de usuario a nombres.
+     */
+    private function formatActivityChanges($activity, $userNames): array
+    {
+        $labels = [
+            'codigo' => 'Código',
+            'titulo' => 'Título',
+            'estado' => 'Estado',
+            'abogado_lider_id' => 'Abogado líder',
+            'apoderado_id' => 'Apoderado',
+            'fecha_cierre' => 'Fecha de cierre',
+            'prioridad' => 'Prioridad',
+            'asignado_a' => 'Asignado a',
+            'fecha_limite' => 'Fecha límite',
+        ];
+
+        $userFields = ['abogado_lider_id', 'apoderado_id', 'asignado_a'];
+        $new = $activity->properties->get('attributes', []);
+        $old = $activity->properties->get('old', []);
+
+        $format = function ($field, $value) use ($userFields, $userNames) {
+            if ($value === null || $value === '') {
+                return null;
+            }
+
+            return in_array($field, $userFields, true)
+                ? ($userNames[$value] ?? "Usuario #{$value}")
+                : (string) $value;
+        };
+
+        $changes = [];
+        foreach ($new as $field => $value) {
+            $changes[] = [
+                'campo' => $labels[$field] ?? $field,
+                'antes' => $format($field, $old[$field] ?? null),
+                'despues' => $format($field, $value),
+            ];
+        }
+
+        return $changes;
     }
 
     public function edit(Process $process): Response
@@ -281,6 +376,39 @@ class ProcessController extends Controller
         return redirect()
             ->route('admin.processes.index')
             ->with('success', 'Proceso archivado.');
+    }
+
+    /**
+     * POST /admin/processes/{process}/ai/summary
+     * Genera (o regenera) manualmente el resumen ejecutivo del proceso con IA y lo
+     * persiste en `processes.resumen_ia`. Devuelve el texto y la marca de tiempo.
+     *
+     * El resumen también se genera automáticamente al crear un caso desde el
+     * pipeline de correos entrantes (ver EmailRouter::handleNuevoCaso); este
+     * endpoint cubre los procesos creados a mano o cuando se quiere refrescar.
+     */
+    public function generateSummary(Request $request, Process $process, ProcessSummaryService $summaries): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($request->user()?->can('ai.use'), 403);
+
+        // El resumen puede tardar varios segundos; subimos el límite solo para esta request.
+        set_time_limit(120);
+
+        try {
+            $summaries->generate($process);
+
+            return response()->json([
+                'resumen_ia' => $process->resumen_ia,
+                'resumen_ia_generado_at' => $process->resumen_ia_generado_at?->toIso8601String(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'No se pudo generar el resumen del proceso.',
+                'detail' => app()->environment('production') ? null : $e->getMessage(),
+            ], 502);
+        }
     }
 
     private function staffOptions(): array

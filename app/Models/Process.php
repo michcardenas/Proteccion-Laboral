@@ -25,6 +25,8 @@ class Process extends Model
         'codigo',
         'titulo',
         'descripcion',
+        'resumen_ia',
+        'resumen_ia_generado_at',
         'estado',
         'fecha_apertura',
         'fecha_cierre',
@@ -33,6 +35,7 @@ class Process extends Model
     protected $casts = [
         'fecha_apertura' => 'date',
         'fecha_cierre' => 'date',
+        'resumen_ia_generado_at' => 'datetime',
     ];
 
     public function client(): BelongsTo

@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // Google Picker (adjuntar documentos de Drive en el Kanban).
+    // Valores públicos (van al frontend): API key de navegador, OAuth Client ID (Web)
+    // y el número de proyecto (app id). Habilitar "Google Picker API" en Google Cloud.
+    'google' => [
+        'picker_client_id' => env('GOOGLE_PICKER_CLIENT_ID'),
+        'picker_api_key' => env('GOOGLE_PICKER_API_KEY'),
+        'picker_app_id' => env('GOOGLE_PICKER_APP_ID'),
+        'picker_scope' => env('GOOGLE_PICKER_SCOPE', 'https://www.googleapis.com/auth/drive.file'),
+    ],
+
 ];

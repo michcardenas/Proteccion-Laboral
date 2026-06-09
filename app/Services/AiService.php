@@ -91,6 +91,13 @@ class AiService
                 'content-type' => 'application/json',
             ])
             ->timeout($this->timeout)
+            // Backoff ante rate limit (429) o sobrecarga (529) de Anthropic.
+            ->retry(
+                3,
+                fn (int $attempt) => $attempt * 15000,
+                fn ($exception) => $exception instanceof \Illuminate\Http\Client\RequestException
+                    && in_array($exception->response->status(), [429, 529], true),
+            )
             ->post(config('anthropic.base_url').'/messages', $payload)
             ->throw()
             ->json();
@@ -123,7 +130,9 @@ class AiService
      *                          ['from' => string, 'subject' => string,
      *                           'body_text' => string, 'attachments' => string[]]
      * @param  array  $context  Contexto adicional opcional:
-     *                          ['known_processes' => array<int, array{code: string, client_name: string, ...}>]
+     *                          ['known_processes' => array<int, array{code: string, client_name: string, ...}>,
+     *                           'known_clients' => array<int, array{razon_social: string, nit: ?string}>,
+     *                           'known_service_types' => string[]]
      * @return array{
      *     action: string,
      *     confidence: float,
@@ -175,8 +184,8 @@ class AiService
         $attachments = $payload['attachments'] ?? [];
         $attachmentsList = empty($attachments) ? '(ninguno)' : implode(', ', $attachments);
 
-        $knownProcessesJson = json_encode(
-            $context['known_processes'] ?? [],
+        $json = fn (string $key) => json_encode(
+            $context[$key] ?? [],
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
         );
 
@@ -185,7 +194,9 @@ class AiService
             '{{subject}}' => $payload['subject'] ?? '',
             '{{body_text}}' => $payload['body_text'] ?? '',
             '{{attachments}}' => $attachmentsList,
-            '{{known_processes}}' => $knownProcessesJson,
+            '{{known_processes}}' => $json('known_processes'),
+            '{{known_clients}}' => $json('known_clients'),
+            '{{known_service_types}}' => $json('known_service_types'),
         ]);
     }
 

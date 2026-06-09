@@ -65,7 +65,9 @@ class EmailRouter
             'client_id' => $client->id,
             'service_type_id' => $serviceType->id,
             'codigo' => $this->generateCode(),
-            'titulo' => $c['summary'] ?? $ingestion->subject ?? 'Caso entrante',
+            // Título corto que da la IA (campo `title`); el `summary` largo va a la descripción.
+            // Recorte de seguridad por si el modelo se pasa de largo.
+            'titulo' => Str::limit($c['title'] ?? $ingestion->subject ?? 'Caso entrante', 80, ''),
             'descripcion' => $ingestion->body_text,
             'estado' => 'abierto',
             'fecha_apertura' => now()->toDateString(),
@@ -76,6 +78,11 @@ class EmailRouter
 
         $this->attachComment($process, $ingestion);
         $this->attachAttachmentsAsDocuments($process, $ingestion);
+
+        // Resumen ejecutivo del proceso, generado una sola vez al crear el caso.
+        // Queda persistido en processes.resumen_ia; no se regenera con cada correo.
+        // generateQuietly: si la IA falla, se reporta pero el correo igual queda procesado.
+        app(ProcessSummaryService::class)->generateQuietly($process);
 
         return EmailIngestion::STATUS_PROCESSED;
     }

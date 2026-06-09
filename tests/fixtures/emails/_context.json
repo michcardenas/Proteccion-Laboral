@@ -1,0 +1,26 @@
+{
+    "known_clients": [
+        { "razon_social": "CLINICA VITAL IPS SAS", "nit": "900111222" },
+        { "razon_social": "DISTRIBUCIONES BOLIVAR SAS", "nit": "800222333" },
+        { "razon_social": "COLCHONES EL DESCANSO SAS", "nit": "901333444" },
+        { "razon_social": "AGROPECUARIA EL ROBLE SAS", "nit": "890444555" },
+        { "razon_social": "OFTALMOLOGOS DEL SUR SAS", "nit": "901555666" },
+        { "razon_social": "ASEGURADORA ANDINA LTDA", "nit": "860666777" }
+    ],
+    "known_service_types": [
+        "Asesoría Laboral Permanente",
+        "Capacitación al Personal",
+        "Estructuración Estratégica",
+        "Prediagnóstico Empresarial",
+        "Representación Judicial Laboral",
+        "Servicio por Evento"
+    ],
+    "known_processes": [
+        { "code": "PL-2026-0007", "client_name": "CLINICA VITAL IPS SAS", "service_type": "Asesoría Laboral Permanente" },
+        { "code": "PL-2026-0015", "client_name": "CLINICA VITAL IPS SAS", "service_type": "Representación Judicial Laboral" },
+        { "code": "PL-2026-0012", "client_name": "DISTRIBUCIONES BOLIVAR SAS", "service_type": "Asesoría Laboral Permanente" },
+        { "code": "PL-2026-0019", "client_name": "COLCHONES EL DESCANSO SAS", "service_type": "Asesoría Laboral Permanente" },
+        { "code": "PL-2026-0021", "client_name": "AGROPECUARIA EL ROBLE SAS", "service_type": "Prediagnóstico Empresarial" },
+        { "code": "PL-2026-0023", "client_name": "OFTALMOLOGOS DEL SUR SAS", "service_type": "Asesoría Laboral Permanente" }
+    ]
+}
