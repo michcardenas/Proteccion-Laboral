@@ -61,6 +61,16 @@ class ProcessInboundEmail implements ShouldQueue
             $ingestion->status = $status;
             $ingestion->processed_at = now();
             $ingestion->save();
+
+            // 4) Marcar como leído en Gmail para que el siguiente sondeo (is:unread)
+            //    no lo vuelva a traer y el buzón refleje lo pendiente. Best-effort:
+            //    el correo ya quedó procesado, así que un fallo aquí no debe marcarlo
+            //    como `failed` ni reintentar el pipeline completo.
+            try {
+                $gmail->markAsRead($ingestion->message_id);
+            } catch (Throwable $e) {
+                report($e);
+            }
         } catch (Throwable $e) {
             $ingestion->update([
                 'status' => EmailIngestion::STATUS_FAILED,
