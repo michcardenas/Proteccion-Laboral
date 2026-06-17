@@ -20,7 +20,7 @@ class UpdateProcessRequest extends FormRequest
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'codigo' => ['required', 'string', 'max:40', Rule::unique('processes', 'codigo')->ignore($processId)],
             'titulo' => ['required', 'string', 'max:200'],
-            'descripcion' => ['nullable', 'string', 'max:5000'],
+            'descripcion' => ['nullable', 'string', 'max:60000'],
             'estado' => ['required', Rule::in(['abierto', 'en_curso', 'en_revision', 'cerrado', 'archivado'])],
             'fecha_apertura' => ['required', 'date'],
             'fecha_cierre' => ['nullable', 'date', 'after_or_equal:fecha_apertura'],

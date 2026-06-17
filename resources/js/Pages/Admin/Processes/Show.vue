@@ -1,14 +1,19 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import AiDraftModal from '@/Components/AiDraftModal.vue';
+import PlanImportModal from '@/Components/PlanImportModal.vue';
+import EmailReplyModal from '@/Components/EmailReplyModal.vue';
 
 const props = defineProps({
     process: Object,
     aiTemplates: { type: Array, default: () => [] },
+    staff: { type: Array, default: () => [] },
+    visitTipos: { type: Array, default: () => [] },
+    paymentMetodos: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -18,8 +23,11 @@ const tabs = [
     { key: 'tablero', label: 'Tablero de etapas' },
     { key: 'detalle', label: 'Detalle' },
     { key: 'tareas', label: 'Tareas' },
+    { key: 'visitas', label: 'Visitas' },
+    { key: 'pagos', label: 'Pagos' },
     { key: 'documentos', label: 'Documentos' },
     { key: 'comentarios', label: 'Comentarios' },
+    { key: 'correos', label: 'Correos' },
     { key: 'historial', label: 'Historial' },
 ];
 
@@ -108,6 +116,22 @@ const onAiSaved = ({ kind }) => {
     router.reload({ only: ['process'] });
 };
 
+const showPlanModal = ref(false);
+const onPlanApplied = () => {
+    router.reload({ only: ['process'] });
+};
+
+const showEmailModal = ref(false);
+const selectedEmail = ref(null);
+const openReply = (email) => {
+    selectedEmail.value = email;
+    showEmailModal.value = true;
+};
+const onEmailSent = () => {
+    showEmailModal.value = false;
+    router.reload({ only: ['process'] });
+};
+
 // --- Resumen ejecutivo del proceso (IA) ---
 const resumenIa = ref(props.process.resumen_ia);
 const resumenIaAt = ref(props.process.resumen_ia_generado_at);
@@ -137,6 +161,99 @@ async function generarResumen() {
     } finally {
         generandoResumen.value = false;
     }
+}
+
+// --- Visitas al cliente ---
+const tipoVisitaLabels = { presencial: 'Presencial', virtual: 'Virtual', telefonica: 'Telefónica', otro: 'Otro' };
+const showVisitForm = ref(false);
+const visitForm = useForm({
+    tipo: 'presencial',
+    fecha: new Date().toISOString().slice(0, 10),
+    titulo: '',
+    descripcion: '',
+    visible_cliente: true,
+    asistentes: [],
+    acta: null,
+});
+function openVisitForm() {
+    visitForm.reset();
+    visitForm.clearErrors();
+    visitForm.fecha = new Date().toISOString().slice(0, 10);
+    showVisitForm.value = true;
+}
+function submitVisit() {
+    visitForm.post(route('admin.processes.visits.store', props.process.id), {
+        preserveScroll: true,
+        forceFormData: true, // necesario para subir el archivo del acta
+        onSuccess: () => {
+            showVisitForm.value = false;
+            visitForm.reset();
+            router.reload({ only: ['process'] });
+        },
+    });
+}
+const onActaChange = (e) => { visitForm.acta = e.target.files?.[0] ?? null; };
+
+const showDeleteVisit = ref(null); // id de la visita a eliminar
+function deleteVisit(id) {
+    router.delete(route('admin.processes.visits.destroy', [props.process.id, id]), {
+        preserveScroll: true,
+        onFinish: () => { showDeleteVisit.value = null; },
+    });
+}
+
+// --- Pagos del cliente ---
+const metodoLabels = {
+    efectivo: 'Efectivo', transferencia: 'Transferencia', consignacion: 'Consignación',
+    tarjeta: 'Tarjeta', cheque: 'Cheque', otro: 'Otro',
+};
+const fmtMoneda = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n ?? 0);
+
+const showPagoForm = ref(false);
+const pagoEditId = ref(null);
+const pagoForm = useForm({
+    monto: '',
+    fecha_pago: '',
+    concepto: '',
+    metodo: 'transferencia',
+    referencia: '',
+    notas: '',
+});
+function openPagoForm(pago = null) {
+    pagoForm.clearErrors();
+    if (pago) {
+        pagoEditId.value = pago.id;
+        pagoForm.monto = pago.monto;
+        pagoForm.fecha_pago = pago.fecha_pago;
+        pagoForm.concepto = pago.concepto;
+        pagoForm.metodo = pago.metodo;
+        pagoForm.referencia = pago.referencia ?? '';
+        pagoForm.notas = pago.notas ?? '';
+    } else {
+        pagoEditId.value = null;
+        pagoForm.reset();
+        pagoForm.metodo = 'transferencia';
+        pagoForm.fecha_pago = new Date().toISOString().slice(0, 10);
+    }
+    showPagoForm.value = true;
+}
+function submitPago() {
+    const opts = {
+        preserveScroll: true,
+        onSuccess: () => { showPagoForm.value = false; pagoEditId.value = null; pagoForm.reset(); },
+    };
+    if (pagoEditId.value) {
+        pagoForm.put(route('admin.processes.payments.update', [props.process.id, pagoEditId.value]), opts);
+    } else {
+        pagoForm.post(route('admin.processes.payments.store', props.process.id), opts);
+    }
+}
+const showDeletePago = ref(null);
+function deletePago(id) {
+    router.delete(route('admin.processes.payments.destroy', [props.process.id, id]), {
+        preserveScroll: true,
+        onFinish: () => { showDeletePago.value = null; },
+    });
 }
 
 const estadoVariants = {
@@ -176,6 +293,7 @@ const modalidadVariants = {
     estrategico: 'blue',
     capacitacion: 'green',
     prediagnostico: 'yellow',
+    diagnostico_implementacion: 'teal',
 };
 
 // --- Etiquetas legibles para los estados/modalidades (snake_case → "Título Bonito") ---
@@ -203,6 +321,7 @@ const modalidadLabels = {
     estrategico: 'Estratégico',
     capacitacion: 'Capacitación',
     prediagnostico: 'Prediagnóstico',
+    diagnostico_implementacion: 'Diagnóstico e Implementación',
 };
 // Fallback: cualquier valor sin etiqueta explícita se capitaliza y se reemplazan "_" por espacios.
 const prettify = (v) => {
@@ -318,6 +437,16 @@ const isLate = (stage) => {
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                             </svg>
                             Generar borrador IA
+                        </button>
+                        <button
+                            v-if="can('ai.use') && can('processes.update')"
+                            @click="showPlanModal = true"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 transition hover:bg-teal-100"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                            </svg>
+                            Importar plan / contrato (IA)
                         </button>
                         <Link
                             v-if="can('tasks.view')"
@@ -639,6 +768,230 @@ const isLate = (stage) => {
                 </div>
             </section>
 
+            <!-- VISITAS -->
+            <section v-else-if="activeTab === 'visitas'" class="space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-sm text-slate-500">Registra las visitas y reuniones con el cliente. Las marcadas como visibles aparecen en su portal.</p>
+                    <button
+                        v-if="can('visits.manage') || can('processes.update')"
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-900 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800"
+                        @click="openVisitForm"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        Registrar visita
+                    </button>
+                </div>
+
+                <!-- Formulario de nueva visita -->
+                <form
+                    v-if="showVisitForm"
+                    class="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    @submit.prevent="submitVisit"
+                >
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Tipo</label>
+                            <select v-model="visitForm.tipo" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option v-for="t in visitTipos" :key="t" :value="t">{{ tipoVisitaLabels[t] || t }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Fecha *</label>
+                            <input v-model="visitForm.fecha" type="date" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            <p v-if="visitForm.errors.fecha" class="mt-1 text-xs text-rose-600">{{ visitForm.errors.fecha }}</p>
+                        </div>
+                        <div class="flex items-end">
+                            <label class="flex items-center gap-2 text-sm text-slate-600">
+                                <input v-model="visitForm.visible_cliente" type="checkbox" class="rounded border-slate-300 text-brand-900 focus:ring-brand-900" />
+                                Visible para el cliente
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600">Título *</label>
+                        <input v-model="visitForm.titulo" type="text" maxlength="200" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ej: Visita de seguimiento en sede del cliente" />
+                        <p v-if="visitForm.errors.titulo" class="mt-1 text-xs text-rose-600">{{ visitForm.errors.titulo }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600">Descripción</label>
+                        <textarea v-model="visitForm.descripcion" rows="3" maxlength="5000" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Qué se trató en la visita…"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Asistentes</label>
+                            <select v-model="visitForm.asistentes" multiple class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" size="4">
+                                <option v-for="u in staff" :key="u.id" :value="u.id">{{ u.name }}</option>
+                            </select>
+                            <p class="mt-1 text-[11px] text-slate-400">Ctrl/Cmd + clic para varios. Si no eliges, se registra a tu nombre.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Acta / soporte (opcional)</label>
+                            <input type="file" class="mt-1 w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200" @change="onActaChange" />
+                            <p v-if="visitForm.errors.acta" class="mt-1 text-xs text-rose-600">{{ visitForm.errors.acta }}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                        <button type="button" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="showVisitForm = false">Cancelar</button>
+                        <button type="submit" :disabled="visitForm.processing" class="rounded-lg bg-brand-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 disabled:opacity-60">
+                            {{ visitForm.processing ? 'Guardando…' : 'Guardar visita' }}
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Lista de visitas -->
+                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <ul class="divide-y divide-slate-100">
+                        <li v-if="!process.visits || !process.visits.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                            Aún no hay visitas registradas.
+                        </li>
+                        <li v-for="v in process.visits" :key="v.id" class="px-6 py-4">
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="text-sm font-semibold text-slate-900">{{ v.titulo }}</p>
+                                        <StatusBadge variant="indigo" :label="tipoVisitaLabels[v.tipo] || v.tipo" />
+                                        <StatusBadge v-if="v.visible_cliente" variant="green" label="visible cliente" />
+                                        <StatusBadge v-else variant="gray" label="interna" />
+                                    </div>
+                                    <p class="mt-0.5 text-xs text-slate-500">
+                                        {{ formatDate(v.fecha) }}<span v-if="v.registrada_por"> · {{ v.registrada_por }}</span>
+                                    </p>
+                                    <p v-if="v.descripcion" class="mt-2 whitespace-pre-line text-sm text-slate-700">{{ v.descripcion }}</p>
+                                    <div v-if="v.asistentes && v.asistentes.length" class="mt-2 flex flex-wrap gap-1">
+                                        <span v-for="a in v.asistentes" :key="a.id" class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 ring-1 ring-inset ring-slate-200">{{ a.name }}</span>
+                                    </div>
+                                    <div v-if="v.documentos && v.documentos.length" class="mt-3 flex flex-wrap gap-2">
+                                        <a v-for="d in v.documentos" :key="d.id" :href="d.url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:text-indigo-700 hover:ring-indigo-300">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                                            {{ d.nombre }}
+                                        </a>
+                                    </div>
+                                </div>
+                                <button
+                                    v-if="can('visits.manage') || can('processes.update')"
+                                    type="button"
+                                    class="shrink-0 text-slate-400 transition hover:text-rose-600"
+                                    title="Eliminar visita"
+                                    @click="showDeleteVisit = v.id"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                </button>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- PAGOS -->
+            <section v-else-if="activeTab === 'pagos'" class="space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p class="text-sm text-slate-500">Registra los pagos que el cliente realiza. Quedan como constancia y el cliente los ve en su portal.</p>
+                        <p class="mt-1 text-lg font-semibold text-slate-800">
+                            Total registrado: <span class="text-emerald-700">{{ fmtMoneda(process.pagos_total) }}</span>
+                        </p>
+                    </div>
+                    <button
+                        v-if="can('payments.manage')"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                        @click="openPagoForm()"
+                    >
+                        + Registrar pago
+                    </button>
+                </div>
+
+                <!-- Formulario de pago -->
+                <form
+                    v-if="showPagoForm"
+                    class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm"
+                    @submit.prevent="submitPago"
+                >
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Monto (COP)</label>
+                            <input v-model="pagoForm.monto" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="0" />
+                            <p v-if="pagoForm.errors.monto" class="mt-1 text-xs text-rose-600">{{ pagoForm.errors.monto }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Fecha del pago</label>
+                            <input v-model="pagoForm.fecha_pago" type="date" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" />
+                            <p v-if="pagoForm.errors.fecha_pago" class="mt-1 text-xs text-rose-600">{{ pagoForm.errors.fecha_pago }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Método</label>
+                            <select v-model="pagoForm.metodo" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                <option v-for="m in paymentMetodos" :key="m" :value="m">{{ metodoLabels[m] || m }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Concepto</label>
+                            <input v-model="pagoForm.concepto" type="text" maxlength="200" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="Ej: Abono honorarios, cuota 1 de 3…" />
+                            <p v-if="pagoForm.errors.concepto" class="mt-1 text-xs text-rose-600">{{ pagoForm.errors.concepto }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Referencia (opcional)</label>
+                            <input v-model="pagoForm.referencia" type="text" maxlength="120" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="N° de transacción/consignación" />
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-xs font-medium text-slate-600">Notas (opcional)</label>
+                        <textarea v-model="pagoForm.notas" rows="2" maxlength="2000" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="Detalle adicional…"></textarea>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <button type="submit" :disabled="pagoForm.processing" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50">
+                            {{ pagoEditId ? 'Guardar cambios' : 'Registrar pago' }}
+                        </button>
+                        <button type="button" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800" @click="showPagoForm = false">Cancelar</button>
+                    </div>
+                </form>
+
+                <!-- Lista de pagos -->
+                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-100 text-sm">
+                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3">Fecha</th>
+                                <th class="px-4 py-3">Concepto</th>
+                                <th class="px-4 py-3">Método</th>
+                                <th class="px-4 py-3 text-right">Monto</th>
+                                <th class="px-4 py-3">Registró</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-if="!process.pagos || !process.pagos.length">
+                                <td colspan="6" class="px-4 py-8 text-center text-slate-500">Aún no hay pagos registrados.</td>
+                            </tr>
+                            <tr v-for="p in process.pagos" :key="p.id" class="hover:bg-slate-50/60">
+                                <td class="whitespace-nowrap px-4 py-3 text-slate-700">{{ p.fecha_pago }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-slate-800">{{ p.concepto }}</div>
+                                    <div v-if="p.referencia" class="text-xs text-slate-400">Ref: {{ p.referencia }}</div>
+                                    <div v-if="p.notas" class="text-xs text-slate-400">{{ p.notas }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-slate-600">{{ metodoLabels[p.metodo] || p.metodo }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-emerald-700">{{ fmtMoneda(p.monto) }}</td>
+                                <td class="px-4 py-3 text-slate-500">{{ p.registrado_por || '—' }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right">
+                                    <template v-if="can('payments.manage')">
+                                        <button type="button" class="text-xs font-medium text-slate-500 hover:text-slate-800" @click="openPagoForm(p)">Editar</button>
+                                        <button type="button" class="ml-3 text-xs font-medium text-rose-500 hover:text-rose-700" @click="showDeletePago = p.id">Eliminar</button>
+                                    </template>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <!-- DOCUMENTOS -->
             <section v-else-if="activeTab === 'documentos'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <ul class="divide-y divide-slate-100">
@@ -695,6 +1048,37 @@ const isLate = (stage) => {
                             <span v-if="c.created_at" class="text-xs text-slate-500">{{ formatDateTime(c.created_at) }}</span>
                         </div>
                         <p class="mt-1 whitespace-pre-line text-sm text-slate-700">{{ c.body }}</p>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- CORREOS -->
+            <section v-else-if="activeTab === 'correos'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <ul class="divide-y divide-slate-100">
+                    <li v-if="!process.correos || !process.correos.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                        No hay correos asociados a este proceso todavía.
+                    </li>
+                    <li v-for="m in process.correos" :key="m.id" class="px-6 py-4">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="truncate text-sm font-medium text-slate-900">{{ m.subject || '(sin asunto)' }}</p>
+                                    <span class="text-xs text-slate-500">{{ formatDateTime(m.received_at) }}</span>
+                                </div>
+                                <p class="mt-0.5 text-xs text-slate-500">De: {{ m.from }}</p>
+                                <p class="mt-1 whitespace-pre-line text-sm text-slate-600">{{ m.body_preview }}</p>
+                            </div>
+                            <button
+                                v-if="m.puede_responder && can('processes.update')"
+                                @click="openReply(m)"
+                                class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                                </svg>
+                                Responder
+                            </button>
+                        </div>
                     </li>
                 </ul>
             </section>
@@ -809,6 +1193,21 @@ const isLate = (stage) => {
             @saved="onAiSaved"
         />
 
+        <PlanImportModal
+            :show="showPlanModal"
+            :process="process"
+            @close="showPlanModal = false"
+            @applied="onPlanApplied"
+        />
+
+        <EmailReplyModal
+            :show="showEmailModal"
+            :process="process"
+            :email="selectedEmail"
+            @close="showEmailModal = false"
+            @sent="onEmailSent"
+        />
+
         <ConfirmModal
             :show="showDelete"
             title="Archivar proceso"
@@ -817,6 +1216,26 @@ const isLate = (stage) => {
             variant="danger"
             @close="showDelete = false"
             @confirm="performDelete"
+        />
+
+        <ConfirmModal
+            :show="showDeleteVisit !== null"
+            title="Eliminar visita"
+            message="¿Confirmas eliminar esta visita? El cliente dejará de verla en su portal."
+            confirm-label="Sí, eliminar"
+            variant="danger"
+            @close="showDeleteVisit = null"
+            @confirm="deleteVisit(showDeleteVisit)"
+        />
+
+        <ConfirmModal
+            :show="showDeletePago !== null"
+            title="Eliminar pago"
+            message="¿Eliminar este pago? Dejará de verse en el portal del cliente."
+            confirm-text="Eliminar"
+            variant="danger"
+            @close="showDeletePago = null"
+            @confirm="deletePago(showDeletePago)"
         />
     </AuthenticatedLayout>
 </template>

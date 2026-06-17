@@ -3,14 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
-class Client extends Model
+// El cliente se autentica en el portal con su NIT + contraseña (guard `client`),
+// por eso extiende Authenticatable en vez de Model.
+class Client extends Authenticatable
 {
     use HasFactory, SoftDeletes, LogsActivity;
 
@@ -23,13 +25,24 @@ class Client extends Model
         'contacto_principal',
         'email',
         'telefono',
+        'password',
+        'portal_activo',
+        'portal_last_login_at',
         'fecha_alta',
         'estado',
         'notas',
     ];
 
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected $casts = [
         'fecha_alta' => 'date',
+        'portal_activo' => 'boolean',
+        'portal_last_login_at' => 'datetime',
+        'password' => 'hashed',
     ];
 
     public function contactos(): HasMany
@@ -62,6 +75,30 @@ class Client extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+
+    public function visits(): HasMany
+    {
+        return $this->hasMany(Visit::class);
+    }
+
+    /**
+     * El cliente puede acceder al portal si está activo y tiene al menos un
+     * proceso con un abogado asignado (líder, apoderado o coordinador).
+     */
+    public function puedeAccederPortal(): bool
+    {
+        if (! $this->portal_activo) {
+            return false;
+        }
+
+        return $this->processes()
+            ->where(function ($q) {
+                $q->whereNotNull('abogado_lider_id')
+                  ->orWhereNotNull('apoderado_id')
+                  ->orWhereNotNull('coordinador_id');
+            })
+            ->exists();
     }
 
     public function invoices(): HasMany

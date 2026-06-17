@@ -3,10 +3,12 @@ import { ref, reactive, computed, watch } from 'vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import draggable from 'vuedraggable';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import EmailReplyModal from '@/Components/EmailReplyModal.vue';
 import { useGoogleDrivePicker } from '@/Composables/useGoogleDrivePicker';
 
 const props = defineProps({
     tasks: { type: Array, default: () => [] },
+    emails: { type: Array, default: () => [] },
     estados: { type: Array, default: () => [] },
     prioridades: { type: Array, default: () => [] },
     processes: { type: Array, default: () => [] },
@@ -22,6 +24,7 @@ const canUpdate = can('tasks.update');
 const canCreate = can('tasks.create');
 const canUpload = can('documents.upload');
 const canDeleteDoc = can('documents.delete');
+const canReply = can('processes.update');
 
 const drivePicker = useGoogleDrivePicker(props.googlePicker);
 
@@ -152,6 +155,38 @@ const visibleCount = (estado) => columns[estado].filter(matches).length;
 const totalVisible = computed(() => props.estados.reduce((acc, e) => acc + visibleCount(e), 0));
 const clearFilters = () => { search.value = ''; processFilter.value = ''; };
 
+// --- Bandeja de correos (columna del tablero) ---
+const emailCards = ref(props.emails.slice());
+const inboxEmails = computed(() => emailCards.value.filter((em) => {
+    if (processFilter.value && em.process?.id !== Number(processFilter.value)) return false;
+    if (search.value) {
+        const q = search.value.toLowerCase();
+        const hay = `${em.subject} ${em.from} ${em.process?.codigo ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+    }
+    return true;
+}));
+
+// --- Responder un correo desde la bandeja (reutiliza EmailReplyModal) ---
+const replyModal = ref(false);
+const replyEmail = ref(null);
+const replyProcess = ref(null);
+function openReply(em) {
+    if (!em.process) {
+        flash.value = 'Este correo no tiene un proceso asociado.';
+        setTimeout(() => { flash.value = null; }, 4000);
+        return;
+    }
+    replyEmail.value = em;
+    replyProcess.value = em.process;
+    replyModal.value = true;
+}
+function onReplySent() {
+    const card = emailCards.value.find((x) => x.id === replyEmail.value?.id);
+    if (card) card.respondido = true;
+    replyModal.value = false;
+}
+
 // --- Animación al cambiar de proceso ---
 // `filterKey` cambia cada vez que se selecciona otro proceso; lo usamos como :key
 // del contenedor del tablero para re-montar las columnas y re-disparar su
@@ -188,6 +223,8 @@ const selected = ref(null);
 const loadingDetail = ref(false);
 async function openTask(task) {
     loadingDetail.value = true;
+    showProcessDocs.value = false;
+    showProcessEmails.value = false;
     selected.value = { id: task.id, titulo: task.titulo, estado: task.estado };
     try {
         const res = await fetch(route('admin.tasks.show', task.id), {
@@ -257,6 +294,116 @@ async function removeAttachment(doc) {
         selected.value.documents = selected.value.documents.filter((x) => x.id !== doc.id);
     } catch (e) {
         flash.value = 'No se pudo quitar el documento.';
+        setTimeout(() => { flash.value = null; }, 4000);
+    }
+}
+
+// --- Adjuntar un documento que ya pertenece al proceso (importado por la IA, etc.) ---
+const showProcessDocs = ref(false);
+const attachingProcessDoc = ref(null); // id del documento que se está adjuntando
+
+async function attachFromProcess(doc) {
+    attachingProcessDoc.value = doc.id;
+    try {
+        const res = await fetch(route('admin.tasks.attachments.from_process', selected.value.id), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-XSRF-TOKEN': xsrf() },
+            credentials: 'same-origin',
+            body: JSON.stringify({ document_id: doc.id }),
+        });
+        if (!res.ok) throw new Error();
+        const saved = await res.json();
+        if (!Array.isArray(selected.value.documents)) selected.value.documents = [];
+        selected.value.documents.unshift(saved);
+        // Quitarlo de la lista de disponibles (ya está vinculado a la tarjeta).
+        selected.value.processDocuments = (selected.value.processDocuments || []).filter((x) => x.id !== doc.id);
+        if (!selected.value.processDocuments.length) showProcessDocs.value = false;
+    } catch (e) {
+        flash.value = 'No se pudo adjuntar el documento del proceso.';
+        setTimeout(() => { flash.value = null; }, 4000);
+    } finally {
+        attachingProcessDoc.value = null;
+    }
+}
+
+// --- Reasignar el responsable de la tarjeta desde el panel ---
+const savingAssignee = ref(false);
+
+// Busca la tarjeta dentro de las columnas del tablero (para reflejar el cambio sin recargar).
+function findCard(id) {
+    for (const e of props.estados) {
+        const card = (columns[e] || []).find((t) => t.id === id);
+        if (card) return card;
+    }
+    return null;
+}
+
+async function updateAssignee(event) {
+    const val = event.target.value === '' ? null : Number(event.target.value);
+    savingAssignee.value = true;
+    try {
+        const res = await fetch(route('admin.tasks.update', selected.value.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-XSRF-TOKEN': xsrf() },
+            credentials: 'same-origin',
+            body: JSON.stringify({ asignado_a: val }),
+        });
+        if (!res.ok) throw new Error();
+        const updated = await res.json();
+        selected.value.asignado = updated.asignado;
+        selected.value.asignado_a = updated.asignado_a;
+        // Reflejar el avatar/nombre en la tarjeta del tablero.
+        const card = findCard(selected.value.id);
+        if (card) card.asignado = updated.asignado;
+    } catch (e) {
+        flash.value = 'No se pudo asignar la tarea (revisa tus permisos).';
+        setTimeout(() => { flash.value = null; }, 4000);
+    } finally {
+        savingAssignee.value = false;
+    }
+}
+
+// --- Adjuntar correos del proceso a la tarjeta (contexto para quien la ejecuta) ---
+const showProcessEmails = ref(false);
+const attachingEmail = ref(null); // id del correo que se está adjuntando
+
+async function attachEmail(em) {
+    attachingEmail.value = em.id;
+    try {
+        const res = await fetch(route('admin.tasks.emails.attach', selected.value.id), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-XSRF-TOKEN': xsrf() },
+            credentials: 'same-origin',
+            body: JSON.stringify({ email_ingestion_id: em.id }),
+        });
+        if (!res.ok) throw new Error();
+        const saved = await res.json();
+        if (!Array.isArray(selected.value.emails)) selected.value.emails = [];
+        selected.value.emails.unshift(saved);
+        // Quitarlo de la lista de disponibles (ya está adjunto a la tarjeta).
+        selected.value.processEmails = (selected.value.processEmails || []).filter((x) => x.id !== em.id);
+        if (!selected.value.processEmails.length) showProcessEmails.value = false;
+    } catch (e) {
+        flash.value = 'No se pudo adjuntar el correo.';
+        setTimeout(() => { flash.value = null; }, 4000);
+    } finally {
+        attachingEmail.value = null;
+    }
+}
+
+async function removeEmail(em) {
+    try {
+        const res = await fetch(route('admin.tasks.emails.detach', { task: selected.value.id, ingestion: em.id }), {
+            method: 'DELETE',
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf() },
+            credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error();
+        selected.value.emails = selected.value.emails.filter((x) => x.id !== em.id);
+        // Devolverlo a la lista de disponibles del proceso.
+        if (Array.isArray(selected.value.processEmails)) selected.value.processEmails.unshift(em);
+    } catch (e) {
+        flash.value = 'No se pudo quitar el correo.';
         setTimeout(() => { flash.value = null; }, 4000);
     }
 }
@@ -381,6 +528,69 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO') : '
             <!-- :key=filterKey re-monta el tablero al cambiar de proceso, re-disparando
                  la animación de entrada en cascada de las columnas/tarjetas. -->
             <div :key="filterKey" class="flex gap-4 overflow-x-auto pb-4">
+                <!-- Columna Bandeja: correos del proceso (no se arrastran; clic → responder) -->
+                <section class="board-col flex w-72 shrink-0 flex-col rounded-2xl bg-amber-50/40 ring-1 ring-amber-200/70 backdrop-blur-sm">
+                    <header class="flex items-center justify-between px-3 py-3">
+                        <div class="flex items-center gap-2">
+                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-amber-600 shadow-sm ring-1 ring-amber-200/80">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                            </span>
+                            <h3 class="text-sm font-semibold text-amber-700">Bandeja</h3>
+                        </div>
+                        <span class="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-xs font-semibold text-amber-600 shadow-sm ring-1 ring-inset ring-amber-200">
+                            {{ inboxEmails.length }}
+                        </span>
+                    </header>
+
+                    <div class="flex min-h-24 flex-1 flex-col gap-2.5 overflow-y-auto px-2.5 pb-3">
+                        <article
+                            v-for="em in inboxEmails"
+                            :key="em.id"
+                            class="kanban-card group relative cursor-pointer rounded-xl border-l-4 border-l-amber-400 bg-white p-3 shadow-sm ring-1 ring-amber-200/60 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:ring-amber-300"
+                            @click="openReply(em)"
+                        >
+                            <div class="flex items-start gap-2">
+                                <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-50 text-amber-600 ring-1 ring-amber-200">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                                </span>
+                                <p class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-slate-800">{{ em.subject }}</p>
+                            </div>
+                            <p class="mt-1.5 truncate text-xs text-slate-500">{{ em.from }}</p>
+
+                            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                                <span
+                                    v-if="em.respondido"
+                                    class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200"
+                                >
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                    Respondido
+                                </span>
+                                <span
+                                    v-else
+                                    class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200"
+                                >
+                                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                                    Pendiente
+                                </span>
+                                <span
+                                    v-if="em.process && !processFilter"
+                                    class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-100"
+                                >
+                                    {{ em.process.codigo }}
+                                </span>
+                                <span class="ml-auto text-[11px] text-slate-400">{{ formatDate(em.received_at) }}</span>
+                            </div>
+                        </article>
+
+                        <p
+                            v-if="inboxEmails.length === 0"
+                            class="rounded-xl border border-dashed border-amber-300/70 py-8 text-center text-xs text-amber-500/80"
+                        >
+                            Sin correos
+                        </p>
+                    </div>
+                </section>
+
                 <section
                     v-for="(estado, idx) in estados"
                     :key="estado"
@@ -591,10 +801,20 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO') : '
                             <div>
                                 <p class="text-xs uppercase tracking-wide text-slate-400">Asignado</p>
                                 <div class="mt-1 flex items-center gap-2">
-                                    <span class="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold" :class="avatarColor(selected.asignado)">
+                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold" :class="avatarColor(selected.asignado)">
                                         {{ selected.asignado ? initials(selected.asignado) : '—' }}
                                     </span>
-                                    <span class="text-slate-700">{{ selected.asignado || 'Sin asignar' }}</span>
+                                    <select
+                                        v-if="canUpdate"
+                                        :value="selected.asignado_a ?? ''"
+                                        :disabled="savingAssignee"
+                                        class="w-full rounded-lg border-slate-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60"
+                                        @change="updateAssignee"
+                                    >
+                                        <option value="">Sin asignar</option>
+                                        <option v-for="u in assignees" :key="u.id" :value="u.id">{{ u.name }}</option>
+                                    </select>
+                                    <span v-else class="text-slate-700">{{ selected.asignado || 'Sin asignar' }}</span>
                                 </div>
                             </div>
                             <div>
@@ -625,20 +845,60 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO') : '
                             </p>
                         </div>
 
-                        <!-- Documentos de Drive -->
+                        <!-- Documentos -->
                         <div>
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between gap-2">
                                 <p class="text-xs uppercase tracking-wide text-slate-400">Documentos</p>
-                                <button
-                                    v-if="canUpload && googlePicker.enabled"
-                                    type="button"
-                                    class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
-                                    :disabled="attaching"
-                                    @click="attachFromDrive"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>
-                                    {{ attaching ? 'Adjuntando…' : 'Adjuntar de Drive' }}
-                                </button>
+                                <div class="flex items-center gap-1.5">
+                                    <!-- Adjuntar un documento que ya está en el proceso (importado por la IA, etc.) -->
+                                    <button
+                                        v-if="canUpload && selected.processDocuments && selected.processDocuments.length"
+                                        type="button"
+                                        class="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-indigo-700 shadow-sm ring-1 ring-inset ring-indigo-200 transition hover:bg-indigo-50"
+                                        @click="showProcessDocs = !showProcessDocs"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776"/></svg>
+                                        Del proceso
+                                        <span class="rounded-full bg-indigo-100 px-1.5 text-[10px] tabular-nums">{{ selected.processDocuments.length }}</span>
+                                    </button>
+                                    <button
+                                        v-if="canUpload && googlePicker.enabled"
+                                        type="button"
+                                        class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
+                                        :disabled="attaching"
+                                        @click="attachFromDrive"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>
+                                        {{ attaching ? 'Adjuntando…' : 'Adjuntar de Drive' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Selector de documentos del proceso disponibles -->
+                            <div
+                                v-if="showProcessDocs && selected.processDocuments && selected.processDocuments.length"
+                                class="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-2"
+                            >
+                                <p class="px-1 pb-1 text-[11px] font-medium text-indigo-700/80">Documentos del proceso · toca para adjuntar</p>
+                                <ul class="space-y-1">
+                                    <li v-for="pd in selected.processDocuments" :key="pd.id">
+                                        <button
+                                            type="button"
+                                            class="flex w-full items-center gap-2 rounded-md bg-white px-2.5 py-2 text-left text-sm ring-1 ring-inset ring-slate-200 transition hover:ring-indigo-300 disabled:opacity-60"
+                                            :disabled="attachingProcessDoc === pd.id"
+                                            @click="attachFromProcess(pd)"
+                                        >
+                                            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-50 text-slate-500 ring-1 ring-slate-200">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                                            </span>
+                                            <span class="min-w-0 flex-1 truncate text-slate-700">{{ pd.nombre }}</span>
+                                            <span v-if="pd.generado_por_ia" class="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-100">IA</span>
+                                            <span class="shrink-0 text-xs font-medium text-indigo-600">
+                                                {{ attachingProcessDoc === pd.id ? '…' : '+ Adjuntar' }}
+                                            </span>
+                                        </button>
+                                    </li>
+                                </ul>
                             </div>
 
                             <p
@@ -677,6 +937,81 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO') : '
                             <p v-else class="mt-2 text-sm italic text-slate-400">Sin documentos adjuntos.</p>
                         </div>
 
+                        <!-- Correos del proceso (contexto para quien ejecuta la tarjeta) -->
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-xs uppercase tracking-wide text-slate-400">Correos</p>
+                                <button
+                                    v-if="canUpdate && selected.processEmails && selected.processEmails.length"
+                                    type="button"
+                                    class="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-sky-700 shadow-sm ring-1 ring-inset ring-sky-200 transition hover:bg-sky-50"
+                                    @click="showProcessEmails = !showProcessEmails"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                                    Del proceso
+                                    <span class="rounded-full bg-sky-100 px-1.5 text-[10px] tabular-nums">{{ selected.processEmails.length }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Selector de correos del proceso disponibles -->
+                            <div
+                                v-if="showProcessEmails && selected.processEmails && selected.processEmails.length"
+                                class="mt-2 rounded-lg border border-sky-100 bg-sky-50/40 p-2"
+                            >
+                                <p class="px-1 pb-1 text-[11px] font-medium text-sky-700/80">Correos del proceso · toca para adjuntar</p>
+                                <ul class="space-y-1">
+                                    <li v-for="pe in selected.processEmails" :key="pe.id">
+                                        <button
+                                            type="button"
+                                            class="flex w-full items-start gap-2 rounded-md bg-white px-2.5 py-2 text-left text-sm ring-1 ring-inset ring-slate-200 transition hover:ring-sky-300 disabled:opacity-60"
+                                            :disabled="attachingEmail === pe.id"
+                                            @click="attachEmail(pe)"
+                                        >
+                                            <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-50 text-sky-500 ring-1 ring-slate-200">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                                            </span>
+                                            <span class="min-w-0 flex-1">
+                                                <span class="block truncate font-medium text-slate-700">{{ pe.subject }}</span>
+                                                <span class="block truncate text-xs text-slate-400">{{ pe.from }} · {{ formatDate(pe.received_at) }}</span>
+                                            </span>
+                                            <span class="mt-0.5 shrink-0 text-xs font-medium text-sky-600">
+                                                {{ attachingEmail === pe.id ? '…' : '+ Adjuntar' }}
+                                            </span>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <ul v-if="selected.emails && selected.emails.length" class="mt-2 space-y-2">
+                                <li
+                                    v-for="em in selected.emails"
+                                    :key="em.id"
+                                    class="rounded-lg bg-slate-50 p-2.5 ring-1 ring-inset ring-slate-200"
+                                >
+                                    <div class="flex items-start gap-2">
+                                        <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-sky-600 ring-1 ring-slate-200">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                                        </span>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="truncate text-sm font-medium text-slate-700">{{ em.subject }}</p>
+                                            <p class="truncate text-xs text-slate-400">{{ em.from }} · {{ formatDate(em.received_at) }}</p>
+                                        </div>
+                                        <button
+                                            v-if="canUpdate"
+                                            type="button"
+                                            class="shrink-0 text-slate-400 hover:text-rose-600"
+                                            title="Quitar"
+                                            @click="removeEmail(em)"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                        </button>
+                                    </div>
+                                    <p v-if="em.preview" class="mt-2 whitespace-pre-line text-xs text-slate-500">{{ em.preview }}</p>
+                                </li>
+                            </ul>
+                            <p v-else class="mt-2 text-sm italic text-slate-400">Sin correos adjuntos.</p>
+                        </div>
+
                         <!-- Comentarios -->
                         <div>
                             <p class="text-xs uppercase tracking-wide text-slate-400">Comentarios</p>
@@ -698,6 +1033,15 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO') : '
                 </aside>
             </div>
         </transition>
+
+        <!-- Responder correo de la bandeja (reutiliza el flujo de la ficha del proceso) -->
+        <EmailReplyModal
+            :show="replyModal"
+            :process="replyProcess || {}"
+            :email="replyEmail"
+            @close="replyModal = false"
+            @sent="onReplySent"
+        />
     </AuthenticatedLayout>
 </template>
 

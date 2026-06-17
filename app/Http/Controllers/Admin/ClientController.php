@@ -134,6 +134,10 @@ class ClientController extends Controller
                 'fecha_alta' => $client->fecha_alta?->format('Y-m-d'),
                 'notas' => $client->notas,
                 'created_at' => $client->created_at->toIso8601String(),
+                // Estado del portal del cliente (NIT + contraseña).
+                'portal_activo' => (bool) $client->portal_activo,
+                'portal_last_login_at' => $client->portal_last_login_at?->toIso8601String(),
+                'puede_acceder_portal' => $client->puedeAccederPortal(),
                 'contactos' => $client->contactos->map(fn ($c) => [
                     'id' => $c->id,
                     'nombre' => $c->nombre,
@@ -201,6 +205,45 @@ class ClientController extends Controller
         return redirect()
             ->route('admin.clients.show', $client)
             ->with('success', 'Cliente actualizado.');
+    }
+
+    /**
+     * Activa el portal del cliente y define/genera su contraseña.
+     * El cliente entrará con su NIT + esta contraseña.
+     */
+    public function activatePortal(Request $request, Client $client): RedirectResponse
+    {
+        abort_unless($request->user()->can('clients.update'), 403);
+
+        $data = $request->validate([
+            // Opcional: si no se envía, se genera una temporal y se muestra una vez.
+            'password' => ['nullable', 'string', 'min:6', 'max:100'],
+        ]);
+
+        $plain = $data['password'] ?? \Illuminate\Support\Str::password(10, symbols: false);
+
+        $client->forceFill([
+            'password' => $plain, // el cast 'hashed' del modelo lo cifra
+            'portal_activo' => true,
+        ])->save();
+
+        // Se devuelve la contraseña en claro UNA sola vez para que el despacho la comparta.
+        return back()->with('portal_credentials', [
+            'nit' => $client->nit,
+            'password' => $plain,
+        ])->with('success', 'Portal del cliente activado.');
+    }
+
+    /**
+     * Desactiva el portal del cliente (no podrá iniciar sesión).
+     */
+    public function deactivatePortal(Request $request, Client $client): RedirectResponse
+    {
+        abort_unless($request->user()->can('clients.update'), 403);
+
+        $client->forceFill(['portal_activo' => false])->save();
+
+        return back()->with('success', 'Portal del cliente desactivado.');
     }
 
     public function destroy(Client $client): RedirectResponse

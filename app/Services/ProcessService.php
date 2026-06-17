@@ -21,7 +21,7 @@ class ProcessService
             /** @var Process $process */
             $process = Process::create($attributes);
 
-            $serviceType = ServiceType::with(['stageTemplates.checklistItems'])
+            $serviceType = ServiceType::with(['stageTemplates.checklistItems', 'taskTemplates'])
                 ->findOrFail($process->service_type_id);
 
             $serviceLevelChecklist = ServiceChecklistItem::query()
@@ -64,7 +64,21 @@ class ProcessService
                 }
             }
 
-            return $process->load('stages.checklistResponses');
+            // Tarjetas del tablero Kanban a partir de la rúbrica del servicio.
+            foreach ($serviceType->taskTemplates as $taskTemplate) {
+                $process->tasks()->create([
+                    'titulo' => $taskTemplate->titulo,
+                    'descripcion' => $taskTemplate->descripcion,
+                    'prioridad' => $taskTemplate->prioridad,
+                    'estado' => 'pendiente',
+                    'creado_por' => auth()->id(),
+                    'fecha_limite' => $taskTemplate->sla_dias
+                        ? $process->fecha_apertura->copy()->addDays($taskTemplate->sla_dias)
+                        : null,
+                ]);
+            }
+
+            return $process->load(['stages.checklistResponses', 'tasks']);
         });
     }
 

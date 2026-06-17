@@ -20,7 +20,7 @@ class StoreProcessRequest extends FormRequest
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'codigo' => ['nullable', 'string', 'max:40', 'unique:processes,codigo'],
             'titulo' => ['required', 'string', 'max:200'],
-            'descripcion' => ['nullable', 'string', 'max:5000'],
+            'descripcion' => ['nullable', 'string', 'max:60000'],
             'estado' => ['required', Rule::in(['abierto', 'en_curso', 'en_revision', 'cerrado', 'archivado'])],
             'fecha_apertura' => ['required', 'date'],
             'abogado_lider_id' => ['nullable', 'exists:users,id'],

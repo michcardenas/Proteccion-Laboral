@@ -88,6 +88,21 @@ class Process extends Model
         return $this->morphMany(Comment::class, 'commentable');
     }
 
+    public function visits(): HasMany
+    {
+        return $this->hasMany(Visit::class);
+    }
+
+    public function emailIngestions(): HasMany
+    {
+        return $this->hasMany(EmailIngestion::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

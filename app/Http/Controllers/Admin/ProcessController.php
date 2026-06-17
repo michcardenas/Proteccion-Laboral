@@ -153,6 +153,9 @@ class ProcessController extends Controller
             'tasks' => fn ($q) => $q->with('asignado:id,name')->latest(),
             'documents' => fn ($q) => $q->with('uploader:id,name')->latest(),
             'comments' => fn ($q) => $q->with('user:id,name')->latest(),
+            'visits' => fn ($q) => $q->with(['registradaPor:id,name', 'asistentes:id,name', 'documents'])->orderByDesc('fecha'),
+            'emailIngestions' => fn ($q) => $q->orderByDesc('received_at'),
+            'payments' => fn ($q) => $q->with('registradoPor:id,name')->orderByDesc('fecha_pago'),
         ]);
 
         $totalChecklist = $process->stages->sum(fn ($s) => $s->checklistResponses->count());
@@ -264,6 +267,46 @@ class ProcessController extends Controller
                     'user' => $c->user?->name,
                     'created_at' => $c->created_at?->toIso8601String(),
                 ]),
+                'visits' => $process->visits->map(fn ($v) => [
+                    'id' => $v->id,
+                    'tipo' => $v->tipo,
+                    'fecha' => $v->fecha?->format('Y-m-d'),
+                    'titulo' => $v->titulo,
+                    'descripcion' => $v->descripcion,
+                    'visible_cliente' => (bool) $v->visible_cliente,
+                    'registrada_por' => $v->registradaPor?->name,
+                    'asistentes' => $v->asistentes->map(fn ($u) => ['id' => $u->id, 'name' => $u->name]),
+                    'documentos' => $v->documents->map(fn ($d) => [
+                        'id' => $d->id,
+                        'nombre' => $d->nombre,
+                        'url' => route('admin.documents.download', $d->id),
+                    ]),
+                    'created_at' => $v->created_at?->toIso8601String(),
+                ]),
+                // Correos del proceso (ingestados desde Gmail) para responder desde la ficha.
+                'correos' => $process->emailIngestions->map(fn ($e) => [
+                    'id' => $e->id,
+                    'from' => $e->from,
+                    'to' => $e->to,
+                    'subject' => $e->subject,
+                    'body_preview' => \Illuminate\Support\Str::limit($e->body_text ?? '', 280),
+                    'body_text' => $e->body_text,
+                    'status' => $e->status,
+                    'received_at' => $e->received_at?->toIso8601String(),
+                    'puede_responder' => ! empty($e->from),
+                ]),
+                'pagos' => $process->payments->map(fn ($p) => [
+                    'id' => $p->id,
+                    'monto' => (float) $p->monto,
+                    'fecha_pago' => $p->fecha_pago?->format('Y-m-d'),
+                    'concepto' => $p->concepto,
+                    'metodo' => $p->metodo,
+                    'referencia' => $p->referencia,
+                    'notas' => $p->notas,
+                    'registrado_por' => $p->registradoPor?->name,
+                    'created_at' => $p->created_at?->toIso8601String(),
+                ]),
+                'pagos_total' => (float) $process->payments->sum('monto'),
                 'progress' => [
                     'total' => $totalChecklist,
                     'completed' => $completedChecklist,
@@ -283,6 +326,9 @@ class ProcessController extends Controller
                 ]),
             ],
             'aiTemplates' => AiGenerationController::ALLOWED_TEMPLATES,
+            'staff' => $this->staffOptions(),
+            'visitTipos' => \App\Models\Visit::TIPOS,
+            'paymentMetodos' => \App\Models\Payment::METODOS,
         ]);
     }
 

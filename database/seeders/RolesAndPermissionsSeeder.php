@@ -34,16 +34,21 @@ class RolesAndPermissionsSeeder extends Seeder
 
         'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',
 
+        'visits.manage',
+
         'documents.view', 'documents.upload', 'documents.delete', 'documents.share_with_client',
 
         'comments.view', 'comments.create',
 
         'invoices.view', 'invoices.create', 'invoices.update', 'invoices.delete',
         'accounting.view', 'accounting.upload',
+        'payments.view', 'payments.manage',
 
         'dashboard.executive', 'dashboard.operational',
 
         'ai.use', 'ai.usage_view', 'ai.config',
+
+        'emails.review',
 
         'portal.access',
     ];
@@ -58,12 +63,15 @@ class RolesAndPermissionsSeeder extends Seeder
             'processes.view', 'processes.create', 'processes.update', 'processes.assign', 'processes.close',
             'stages.update', 'stages.complete',
             'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',
+            'visits.manage',
             'documents.view', 'documents.upload', 'documents.share_with_client',
             'comments.view', 'comments.create',
             'invoices.view',
             'accounting.view',
+            'payments.view', 'payments.manage',
             'dashboard.executive', 'dashboard.operational',
             'ai.use', 'ai.usage_view',
+            'emails.review',
         ],
         'abogado_interno' => [
             'clients.view_assigned',
@@ -72,8 +80,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'processes.view_assigned', 'processes.update',
             'stages.update', 'stages.complete',
             'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',
+            'visits.manage',
             'documents.view', 'documents.upload', 'documents.share_with_client',
             'comments.view', 'comments.create',
+            'payments.view', 'payments.manage',
             'dashboard.operational',
             'ai.use',
         ],
@@ -84,8 +94,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'processes.view_assigned', 'processes.update',
             'stages.update', 'stages.complete',
             'tasks.view', 'tasks.update', 'tasks.complete',
+            'visits.manage',
             'documents.view', 'documents.upload',
             'comments.view', 'comments.create',
+            'payments.view', 'payments.manage',
             'ai.use',
         ],
         'apoderado' => [
@@ -93,8 +105,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'processes.view_assigned', 'processes.update',
             'stages.update', 'stages.complete',
             'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',
+            'visits.manage',
             'documents.view', 'documents.upload',
             'comments.view', 'comments.create',
+            'payments.view', 'payments.manage',
             'ai.use',
         ],
         'contador' => [
@@ -103,6 +117,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'contracts.view',
             'invoices.view',
             'accounting.view', 'accounting.upload',
+            'payments.view', 'payments.manage',
         ],
         'cliente' => [
             'portal.access',

@@ -189,4 +189,59 @@ class GmailServiceTest extends TestCase
         $this->assertSame('Hola', $service->extractHeader($headers, 'SUBJECT'));
         $this->assertSame('', $service->extractHeader($headers, 'Cc'));
     }
+
+    // === normalizeMessage: datos de enhebrado (thread_id / Message-ID) ===
+
+    public function test_normalize_message_captures_thread_id_and_message_id_header(): void
+    {
+        $raw = [
+            'id' => 'msg-9',
+            'threadId' => 'thr-9',
+            'payload' => [
+                'headers' => [
+                    ['name' => 'Message-ID', 'value' => '<abc123@mail.gmail.com>'],
+                    ['name' => 'Subject', 'value' => 'Consulta'],
+                ],
+            ],
+        ];
+
+        $result = (new GmailService())->normalizeMessage($raw);
+
+        $this->assertSame('thr-9', $result['thread_id']);
+        $this->assertSame('<abc123@mail.gmail.com>', $result['message_id_header']);
+    }
+
+    // === buildRawMessage (helper puro) ===
+
+    public function test_build_raw_message_encodes_headers_threading_and_body(): void
+    {
+        $encoded = (new GmailService())->buildRawMessage(
+            'cliente@empresa.com',
+            'Re: Fijación de audiencia',
+            'Estimado cliente, confirmamos recepción.',
+            '<orig-123@mail.gmail.com>',
+        );
+
+        // base64url → MIME plano.
+        $mime = base64_decode(strtr($encoded, '-_', '+/'));
+
+        $this->assertStringContainsString('To: cliente@empresa.com', $mime);
+        $this->assertStringContainsString('In-Reply-To: <orig-123@mail.gmail.com>', $mime);
+        $this->assertStringContainsString('References: <orig-123@mail.gmail.com>', $mime);
+        $this->assertStringContainsString('Content-Type: text/plain; charset=UTF-8', $mime);
+        // Asunto con tilde → encoded-word RFC 2047.
+        $this->assertStringContainsString('=?UTF-8?B?', $mime);
+        // Cuerpo tras la línea en blanco.
+        $this->assertStringContainsString("\r\n\r\nEstimado cliente, confirmamos recepción.", $mime);
+    }
+
+    public function test_build_raw_message_without_threading_omits_reply_headers(): void
+    {
+        $encoded = (new GmailService())->buildRawMessage('a@b.com', 'Hola', 'Cuerpo');
+        $mime = base64_decode(strtr($encoded, '-_', '+/'));
+
+        $this->assertStringNotContainsString('In-Reply-To:', $mime);
+        $this->assertStringContainsString('To: a@b.com', $mime);
+        $this->assertStringContainsString('Subject: Hola', $mime);
+    }
 }

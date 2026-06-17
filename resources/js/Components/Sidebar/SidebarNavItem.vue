@@ -7,6 +7,7 @@ defineProps({
     icon: { type: String, default: null },
     active: { type: Boolean, default: false },
     collapsed: { type: Boolean, default: false },
+    badge: { type: [Number, String], default: null },
 });
 </script>
 
@@ -28,5 +29,15 @@ defineProps({
             v-html="icon"
         />
         <span class="truncate" :class="collapsed ? 'lg:hidden' : ''">{{ label }}</span>
+        <span
+            v-if="badge"
+            class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
+            :class="[
+                active ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700',
+                collapsed ? 'lg:hidden' : '',
+            ]"
+        >
+            {{ badge }}
+        </span>
     </Link>
 </template>

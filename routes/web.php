@@ -7,10 +7,18 @@ use App\Http\Controllers\Admin\ClientContactController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\ContractController;
 use App\Http\Controllers\Admin\DocumentController;
+use App\Http\Controllers\Admin\EmailReviewController;
 use App\Http\Controllers\Admin\ProcessController;
 use App\Http\Controllers\Admin\ProcessStageController;
 use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\PlanImportController;
+use App\Http\Controllers\Admin\ProcessEmailController;
+use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\PaymentReportController;
+use App\Http\Controllers\Admin\VisitController;
+use App\Http\Controllers\Auth\ClientSessionController;
+use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -129,6 +137,57 @@ Route::middleware(['auth', 'verified'])
             ->patch('processes/{process}/stages/{stage}/complete', [ProcessStageController::class, 'complete'])
             ->name('processes.stages.complete');
 
+        // === Visitas a clientes (registradas por el abogado dentro de un proceso) ===
+        Route::middleware('permission:visits.manage')->group(function () {
+            Route::post('processes/{process}/visits', [VisitController::class, 'store'])->name('processes.visits.store');
+            Route::put('processes/{process}/visits/{visit}', [VisitController::class, 'update'])->name('processes.visits.update');
+            Route::delete('processes/{process}/visits/{visit}', [VisitController::class, 'destroy'])->name('processes.visits.destroy');
+        });
+
+        // === Pagos del cliente (registrados por el abogado dentro de un proceso) ===
+        Route::middleware('permission:payments.manage')->group(function () {
+            Route::post('processes/{process}/payments', [PaymentController::class, 'store'])->name('processes.payments.store');
+            Route::put('processes/{process}/payments/{payment}', [PaymentController::class, 'update'])->name('processes.payments.update');
+            Route::delete('processes/{process}/payments/{payment}', [PaymentController::class, 'destroy'])->name('processes.payments.destroy');
+        });
+
+        // Tablero global de pagos (reporte de finanzas).
+        Route::middleware('permission:payments.view')
+            ->get('payments', [PaymentReportController::class, 'index'])
+            ->name('payments.index');
+
+        // === Activación del portal del cliente ===
+        Route::middleware('permission:clients.update')->group(function () {
+            Route::post('clients/{client}/portal/activate', [ClientController::class, 'activatePortal'])->name('clients.portal.activate');
+            Route::post('clients/{client}/portal/deactivate', [ClientController::class, 'deactivatePortal'])->name('clients.portal.deactivate');
+        });
+
+        // === Importación de plan/contrato con IA ===
+        Route::middleware('permission:ai.use')
+            ->post('processes/{process}/plan/analyze', [PlanImportController::class, 'analyze'])
+            ->name('processes.plan.analyze');
+        Route::middleware('permission:processes.update')
+            ->post('processes/{process}/plan/apply', [PlanImportController::class, 'apply'])
+            ->name('processes.plan.apply');
+
+        // === Responder correos del proceso (Gmail) ===
+        Route::middleware('permission:ai.use')
+            ->post('processes/{process}/emails/{ingestion}/draft', [ProcessEmailController::class, 'draft'])
+            ->name('processes.emails.draft');
+        Route::middleware('permission:processes.update')
+            ->post('processes/{process}/emails/{ingestion}/reply', [ProcessEmailController::class, 'reply'])
+            ->name('processes.emails.reply');
+
+        // === Revisión de correos (needs_review) ===
+        Route::middleware('permission:emails.review')->group(function () {
+            Route::get('emails/review', [EmailReviewController::class, 'index'])
+                ->name('emails.review.index');
+            Route::post('emails/{ingestion}/assign', [EmailReviewController::class, 'assign'])
+                ->name('emails.review.assign');
+            Route::post('emails/{ingestion}/discard', [EmailReviewController::class, 'discard'])
+                ->name('emails.review.discard');
+        });
+
         // === IA ===
         Route::middleware('permission:ai.use')
             ->post('processes/{process}/ai/generate', [AiGenerationController::class, 'store'])
@@ -186,9 +245,43 @@ Route::middleware(['auth', 'verified'])
             ->post('tasks/{task}/attachments', [TaskController::class, 'storeAttachment'])
             ->name('tasks.attachments.store');
 
+        // Vincular a la tarea un documento ya existente del proceso (importado por la IA, etc.)
+        Route::middleware('permission:documents.upload')
+            ->post('tasks/{task}/attachments/from-process', [TaskController::class, 'attachProcessDocument'])
+            ->name('tasks.attachments.from_process');
+
         Route::middleware('permission:documents.delete')
             ->delete('tasks/{task}/attachments/{document}', [TaskController::class, 'destroyAttachment'])
             ->name('tasks.attachments.destroy');
+
+        // Adjuntar/quitar correos del proceso en una tarea (contexto para quien la ejecuta)
+        Route::middleware('permission:tasks.update')->group(function () {
+            Route::post('tasks/{task}/emails', [TaskController::class, 'attachEmail'])
+                ->name('tasks.emails.attach');
+            Route::delete('tasks/{task}/emails/{ingestion}', [TaskController::class, 'detachEmail'])
+                ->name('tasks.emails.detach');
+        });
     });
+
+/*
+|--------------------------------------------------------------------------
+| Portal del cliente (guard `client`, login por NIT)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('portal')->name('portal.')->group(function () {
+    // Login del cliente (solo invitados del guard client).
+    Route::middleware('guest:client')->group(function () {
+        Route::get('login', [ClientSessionController::class, 'create'])->name('login');
+        Route::post('login', [ClientSessionController::class, 'store'])->name('login.store');
+    });
+
+    // Zona autenticada del cliente.
+    Route::middleware('auth:client')->group(function () {
+        Route::get('/', [PortalDashboardController::class, 'index'])->name('dashboard');
+        Route::get('procesos/{process}', [PortalDashboardController::class, 'show'])->name('process');
+        Route::get('documentos/{document}/download', [PortalDashboardController::class, 'downloadDocument'])->name('documents.download');
+        Route::post('logout', [ClientSessionController::class, 'destroy'])->name('logout');
+    });
+});
 
 require __DIR__.'/auth.php';

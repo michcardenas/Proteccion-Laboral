@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\EmailIngestion;
 use App\Models\Process;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,14 +43,11 @@ class TaskController extends Controller
                ->orWhere('coordinador_id', $user->id);
         });
 
-        // Tareas visibles = asignadas a mí  OR  de un proceso que lidero/apodero/coordino.
-        $tareasVisibles = fn ($q) => $q->where(function ($qq) use ($user, $soloMisProcesos) {
-            $qq->where('asignado_a', $user->id)
-               ->orWhereHas('process', $soloMisProcesos);
-        });
+        // Tareas visibles = las de un proceso en el que el usuario está asignado
+        // (líder, apoderado o coordinador).
+        $tareasVisibles = fn ($q) => $q->whereHas('process', $soloMisProcesos);
 
-        // No preseleccionar un proceso al que el usuario restringido no tiene acceso
-        // (ni lo lidera ni tiene tareas suyas en él).
+        // No preseleccionar un proceso al que el usuario restringido no tiene acceso.
         if ($restringido && $process && ! $this->canAccessProcess($user, $process)) {
             $process = null;
         }
@@ -72,17 +71,42 @@ class TaskController extends Controller
                 ] : null,
             ]);
 
+        // Correos del proceso para la columna "Bandeja" del tablero. Respeta la
+        // misma restricción de visibilidad que las tareas.
+        $emailsQuery = EmailIngestion::query()
+            ->whereNotNull('process_id')
+            ->with('process:id,codigo,titulo')
+            ->latest('received_at');
+
+        if ($restringido) {
+            $emailsQuery->whereHas('process', $soloMisProcesos);
+        }
+
+        $emails = $emailsQuery->get()->map(fn (EmailIngestion $e) => [
+            'id' => $e->id,
+            'from' => $e->from,
+            'subject' => $e->subject ?: '(sin asunto)',
+            'received_at' => $e->received_at?->toIso8601String(),
+            'status' => $e->status,
+            'respondido' => $e->respondido_at !== null,
+            'body_preview' => Str::limit((string) $e->body_text, 400),
+            'process' => $e->process ? [
+                'id' => $e->process->id,
+                'codigo' => $e->process->codigo,
+                'titulo' => $e->process->titulo,
+            ] : null,
+        ]);
+
         return Inertia::render('Admin/Tasks/Board', [
             'tasks' => $tasks,
+            'emails' => $emails,
             'estados' => self::ESTADOS,
             'prioridades' => self::PRIORIDADES,
             'initialProcessId' => $process?->id,
-            // Selector: mismos procesos que aparecen en las tareas visibles (los que
-            // lidero/apodero/coordino + aquellos donde tengo alguna tarea asignada).
+            // Selector: solo los procesos en los que el usuario está asignado
+            // (líder, apoderado o coordinador).
             'processes' => Process::query()
-                ->when($restringido, fn ($q) => $q->where(function ($qq) use ($user, $soloMisProcesos) {
-                    $soloMisProcesos($qq)->orWhereHas('tasks', fn ($t) => $t->where('asignado_a', $user->id));
-                }))
+                ->when($restringido, $soloMisProcesos)
                 ->orderBy('codigo')
                 ->get(['id', 'codigo', 'titulo']),
             'assignees' => User::where('is_active', true)->orderBy('name')->get(['id', 'name']),
@@ -108,6 +132,7 @@ class TaskController extends Controller
             'creador:id,name',
             'comments' => fn ($q) => $q->with('user:id,name')->latest(),
             'documents' => fn ($q) => $q->with('uploader:id,name')->latest(),
+            'emailIngestions' => fn ($q) => $q->latest('received_at'),
         ]);
 
         $this->authorizeTaskAccess($request, $task);
@@ -121,6 +146,7 @@ class TaskController extends Controller
             'fecha_limite' => $task->fecha_limite?->format('Y-m-d'),
             'completada_at' => $task->completada_at?->toIso8601String(),
             'asignado' => $task->asignado?->name,
+            'asignado_a' => $task->asignado_a,
             'creador' => $task->creador?->name,
             'process' => $task->process ? [
                 'id' => $task->process->id,
@@ -144,8 +170,111 @@ class TaskController extends Controller
                 'subido_por' => $d->uploader?->name,
                 'created_at' => $d->created_at?->toIso8601String(),
             ]),
+            // Documentos del proceso que aún no están en ninguna tarjeta (los que la
+            // IA importó del correo, borradores, etc.) — disponibles para adjuntar.
+            'processDocuments' => $this->availableProcessDocuments($task),
+            // Correos adjuntos a la tarjeta (contexto) + correos del proceso disponibles.
+            'emails' => $task->emailIngestions->map(fn (EmailIngestion $e) => $this->mapEmail($e)),
+            'processEmails' => $this->availableProcessEmails($task),
             'ai' => $this->resolveAiSummary($task),
         ]);
+    }
+
+    /**
+     * Forma compacta de un correo ingestado para el panel de la tarjeta.
+     */
+    private function mapEmail(EmailIngestion $email): array
+    {
+        return [
+            'id' => $email->id,
+            'from' => $email->from,
+            'subject' => $email->subject ?: '(sin asunto)',
+            'received_at' => $email->received_at?->toIso8601String(),
+            'preview' => Str::limit((string) $email->body_text, 220),
+        ];
+    }
+
+    /**
+     * Correos del proceso de la tarea que todavía NO están adjuntos a esta tarjeta,
+     * para ofrecerlos como adjuntables (contexto para quien la ejecuta).
+     *
+     * @return \Illuminate\Support\Collection<int, array>
+     */
+    private function availableProcessEmails(Task $task)
+    {
+        if (! $task->process_id) {
+            return collect();
+        }
+
+        $yaAdjuntos = $task->emailIngestions->pluck('id');
+
+        return EmailIngestion::query()
+            ->where('process_id', $task->process_id)
+            ->whereNotIn('id', $yaAdjuntos)
+            ->latest('received_at')
+            ->get()
+            ->map(fn (EmailIngestion $e) => $this->mapEmail($e));
+    }
+
+    /**
+     * Adjunta a la tarjeta un correo ingestado que pertenece al mismo proceso.
+     */
+    public function attachEmail(Request $request, Task $task): JsonResponse
+    {
+        $this->authorizeTaskAccess($request, $task);
+
+        $data = $request->validate([
+            'email_ingestion_id' => ['required', 'integer', 'exists:email_ingestions,id'],
+        ]);
+
+        $email = EmailIngestion::query()
+            ->where('id', $data['email_ingestion_id'])
+            ->where('process_id', $task->process_id) // solo correos del mismo proceso
+            ->firstOrFail();
+
+        $task->emailIngestions()->syncWithoutDetaching([
+            $email->id => ['attached_by' => $request->user()?->id],
+        ]);
+
+        return response()->json($this->mapEmail($email), 201);
+    }
+
+    /**
+     * Quita un correo adjunto de la tarjeta (no borra el correo, solo el vínculo).
+     */
+    public function detachEmail(Request $request, Task $task, EmailIngestion $ingestion): JsonResponse
+    {
+        $this->authorizeTaskAccess($request, $task);
+
+        $task->emailIngestions()->detach($ingestion->id);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Documentos del proceso de la tarea que todavía no están vinculados a una
+     * tarjeta (task_id null), para ofrecerlos como adjuntables.
+     *
+     * @return \Illuminate\Support\Collection<int, array>
+     */
+    private function availableProcessDocuments(Task $task)
+    {
+        if (! $task->process_id) {
+            return collect();
+        }
+
+        return Document::query()
+            ->where('process_id', $task->process_id)
+            ->whereNull('task_id')
+            ->latest()
+            ->get()
+            ->map(fn (Document $d) => [
+                'id' => $d->id,
+                'nombre' => $d->nombre,
+                'mime' => $d->mime,
+                'tipo' => $d->tipo,
+                'generado_por_ia' => (bool) $d->generado_por_ia,
+            ]);
     }
 
     /**
@@ -179,6 +308,40 @@ class TaskController extends Controller
             'disco' => $document->disco,
             'mime' => $document->mime,
             'subido_por' => $request->user()?->name,
+            'created_at' => $document->created_at?->toIso8601String(),
+        ], 201);
+    }
+
+    /**
+     * Vincula a la tarjeta un documento que ya pertenece al proceso (p. ej. uno
+     * que la IA importó del correo). El documento "se mueve": se le asigna el
+     * task_id, dejando de aparecer como documento general del proceso.
+     */
+    public function attachProcessDocument(Request $request, Task $task): JsonResponse
+    {
+        $this->authorizeTaskAccess($request, $task);
+
+        $data = $request->validate([
+            'document_id' => ['required', 'integer', 'exists:documents,id'],
+        ]);
+
+        $document = Document::query()
+            ->where('id', $data['document_id'])
+            ->where('process_id', $task->process_id) // solo documentos del mismo proceso
+            ->firstOrFail();
+
+        $document->task_id = $task->id;
+        $document->save();
+
+        $document->loadMissing('uploader:id,name');
+
+        return response()->json([
+            'id' => $document->id,
+            'nombre' => $document->nombre,
+            'url' => route('admin.documents.download', $document->id),
+            'disco' => $document->disco,
+            'mime' => $document->mime,
+            'subido_por' => $document->uploader?->name,
             'created_at' => $document->created_at?->toIso8601String(),
         ], 201);
     }
@@ -225,19 +388,45 @@ class TaskController extends Controller
     }
 
     /**
-     * Actualiza el estado de una tarea (al arrastrarla en el tablero).
+     * Actualiza una tarea. El arrastre en el tablero manda solo `estado` (Inertia,
+     * responde redirect). El panel de detalle puede editar asignado/prioridad/fecha
+     * límite (pide JSON, responde la tarea actualizada). Todos los campos opcionales.
      */
-    public function update(Request $request, Task $task): RedirectResponse
+    public function update(Request $request, Task $task): RedirectResponse|JsonResponse
     {
         $this->authorizeTaskAccess($request, $task);
 
         $validated = $request->validate([
-            'estado' => ['required', 'string', Rule::in(self::ESTADOS)],
+            'estado' => ['sometimes', 'required', 'string', Rule::in(self::ESTADOS)],
+            'asignado_a' => ['sometimes', 'nullable', 'exists:users,id'],
+            'prioridad' => ['sometimes', 'required', Rule::in(self::PRIORIDADES)],
+            'fecha_limite' => ['sometimes', 'nullable', 'date'],
         ]);
 
-        $task->estado = $validated['estado'];
-        $task->completada_at = $validated['estado'] === 'completada' ? now() : null;
+        if (array_key_exists('estado', $validated)) {
+            $task->estado = $validated['estado'];
+            $task->completada_at = $validated['estado'] === 'completada' ? now() : null;
+        }
+        foreach (['asignado_a', 'prioridad', 'fecha_limite'] as $campo) {
+            if (array_key_exists($campo, $validated)) {
+                $task->{$campo} = $validated[$campo];
+            }
+        }
         $task->save();
+
+        if ($request->wantsJson()) {
+            $task->loadMissing('asignado:id,name');
+
+            return response()->json([
+                'id' => $task->id,
+                'estado' => $task->estado,
+                'prioridad' => $task->prioridad,
+                'fecha_limite' => $task->fecha_limite?->format('Y-m-d'),
+                'asignado' => $task->asignado?->name,
+                'asignado_a' => $task->asignado_a,
+                'completada_at' => $task->completada_at?->toIso8601String(),
+            ]);
+        }
 
         return back();
     }
@@ -264,9 +453,9 @@ class TaskController extends Controller
 
     /**
      * Autoriza una acción sobre una TAREA concreta. Para un usuario restringido,
-     * exige que la tarea esté asignada a él O que el proceso sea suyo — la misma
-     * unión que decide qué ve en el tablero. Evita que el filtrado se salte
-     * pidiendo una tarea ajena por su id.
+     * exige que el proceso de la tarea sea suyo (líder, apoderado o coordinador)
+     * — mismo criterio que decide qué ve en el tablero. Evita que el filtrado se
+     * salte pidiendo una tarea ajena por su id.
      */
     private function authorizeTaskAccess(Request $request, Task $task): void
     {
@@ -275,10 +464,7 @@ class TaskController extends Controller
             return;
         }
 
-        $accesible = $task->asignado_a === $user->id
-            || $this->canAccessProcess($user, $task->loadMissing('process')->process);
-
-        abort_unless($accesible, 403);
+        abort_unless($this->canAccessProcess($user, $task->loadMissing('process')->process), 403);
     }
 
     /**

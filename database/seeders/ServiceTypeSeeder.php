@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ServiceChecklistItem;
 use App\Models\ServiceStageTemplate;
+use App\Models\ServiceTaskTemplate;
 use App\Models\ServiceType;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -11,6 +12,75 @@ use Illuminate\Support\Str;
 class ServiceTypeSeeder extends Seeder
 {
     public const CATALOG = [
+        [
+            // Plan de trabajo real: "Hoja de Ruta: Diagnóstico e Implementación".
+            // Las fechas de entrega del documento (10, 17 y 24 de junio sobre un
+            // plan abierto el 1 de junio) se modelan como SLA relativos a la apertura.
+            'nombre' => 'Diagnóstico e Implementación Laboral',
+            'modalidad' => 'diagnostico_implementacion',
+            'descripcion' => 'Proceso personalizado de diagnóstico e implementación del plan de mejora del área de talento humano: se intervienen las etapas de la relación contractual (selección, vinculación, ejecución y desvinculación) conforme a los hallazgos del diagnóstico, entregando formatos de contratación actualizados, manuales de funciones y políticas laborales.',
+            'stages' => [
+                [
+                    'nombre' => 'Etapa 1 · Diagnóstico y actualización contractual',
+                    'descripcion' => 'Actualización de modelos contractuales, revisión de cláusulas sensibles y diagnóstico de las carpetas de los trabajadores.',
+                    'sla_dias' => 9,
+                    'rol_default' => 'abogado_interno',
+                    'checklist' => [
+                        'Actualizar modelos de contratos laborales (término fijo, indefinido y obra o labor)',
+                        'Actualizar contratos de prestación de servicios',
+                        'Revisar cláusulas sensibles: confidencialidad, manejo de información y propiedad intelectual',
+                        'Revisar y diagnosticar carpetas de los trabajadores',
+                        'Entregar formatos: otrosíes laborales, acuerdos de confidencialidad, autorizaciones de tratamiento de datos y cartas de terminación laboral',
+                        'Entregar minutas del área de talento humano',
+                    ],
+                ],
+                [
+                    'nombre' => 'Etapa 2 · Manuales de funciones por cargo',
+                    'descripcion' => 'Elaboración de los manuales de funciones por cada cargo conforme al objeto social y las dinámicas laborales y operacionales.',
+                    'sla_dias' => 16,
+                    'rol_default' => 'abogado_interno',
+                    'checklist' => [
+                        'Elaborar manuales de funciones por cargo conforme al objeto social de la empresa',
+                    ],
+                ],
+                [
+                    'nombre' => 'Etapa 3 · Implementación de políticas laborales',
+                    'descripcion' => 'Creación o actualización de políticas internas y ajustes a la jornada laboral.',
+                    'sla_dias' => 23,
+                    'rol_default' => 'abogado_interno',
+                    'checklist' => [
+                        'Crear o actualizar la política de tratamiento de datos personales',
+                        'Ajustar jornada laboral, horarios y control de horas extras',
+                        'Entregar el manual de políticas laborales',
+                        'Entregar política de uso de herramientas tecnológicas y correo corporativo',
+                        'Entregar protocolo de atención de quejas laborales',
+                        'Entregar política de protección de información empresarial',
+                    ],
+                ],
+            ],
+            // Entregables transversales del acompañamiento (durante todo el proceso).
+            'transversales' => [
+                'Atención permanente de consultas jurídico-laborales',
+                'Respuesta y acompañamiento frente a derechos de petición, tutelas y requerimientos',
+                'Acompañamiento en procesos disciplinarios',
+                'Conceptos jurídicos laborales especializados',
+                'Revisión preventiva de decisiones de desvinculación',
+                'Acompañamiento en eventuales inspecciones del Ministerio del Trabajo',
+                'Asesoría preventiva en seguridad social y UGPP',
+            ],
+            // Rúbrica del tablero (derivada del alcance del contrato de prestación de servicios).
+            'tasks' => [
+                ['titulo' => 'Elaborar y socializar el reglamento interno de trabajo (RIT)', 'prioridad' => 'alta', 'sla_dias' => 14,
+                    'descripcion' => 'Elaborar el RIT conforme a las normas aplicables, adecuado a las necesidades de la empresa, y socializarlo.'],
+                ['titulo' => 'Revisar expedientes laborales y generar otrosíes', 'prioridad' => 'alta', 'sla_dias' => 10,
+                    'descripcion' => 'Revisar las carpetas/expedientes del personal vinculado y generar los otrosíes a que haya lugar.'],
+                ['titulo' => 'Acompañar trámite de proceso disciplinario', 'prioridad' => 'media', 'sla_dias' => 12,
+                    'descripcion' => 'Acompañamiento y trámite del proceso disciplinario con el trabajador correspondiente.'],
+                ['titulo' => 'Entregar y socializar manuales de funciones', 'prioridad' => 'media', 'sla_dias' => 18],
+                ['titulo' => 'Reunión de cierre y entrega de entregables', 'prioridad' => 'alta', 'sla_dias' => 23,
+                    'descripcion' => 'Agendar la reunión de cierre donde se entregan los entregables respectivos.'],
+            ],
+        ],
         [
             'nombre' => 'Asesoría Laboral Permanente',
             'modalidad' => 'permanente',
@@ -30,6 +100,10 @@ class ServiceTypeSeeder extends Seeder
                     'Definir cadencia de reuniones',
                     'Acordar canal de consultas',
                 ]],
+            ],
+            'tasks' => [
+                ['titulo' => 'Recolectar documentación corporativa del cliente', 'prioridad' => 'media', 'sla_dias' => 5],
+                ['titulo' => 'Emitir informe de hallazgos del diagnóstico', 'prioridad' => 'alta', 'sla_dias' => 14],
             ],
         ],
         [
@@ -53,6 +127,11 @@ class ServiceTypeSeeder extends Seeder
                     'Entregar informe final al cliente',
                     'Archivar documentación',
                 ]],
+            ],
+            'tasks' => [
+                ['titulo' => 'Recoger relato y documentos del cliente', 'prioridad' => 'alta', 'sla_dias' => 2],
+                ['titulo' => 'Definir vía de actuación y estrategia', 'prioridad' => 'media', 'sla_dias' => 5],
+                ['titulo' => 'Entregar informe final al cliente', 'prioridad' => 'media', 'sla_dias' => 18],
             ],
         ],
         [
@@ -82,6 +161,11 @@ class ServiceTypeSeeder extends Seeder
                     'Notificar al cliente resultado final',
                     'Archivar expediente',
                 ]],
+            ],
+            'tasks' => [
+                ['titulo' => 'Estudiar pruebas y definir estrategia procesal', 'prioridad' => 'alta', 'sla_dias' => 10],
+                ['titulo' => 'Radicar pieza procesal ante el juzgado', 'prioridad' => 'urgente', 'sla_dias' => 20],
+                ['titulo' => 'Notificar al cliente el resultado final', 'prioridad' => 'media', 'sla_dias' => null],
             ],
         ],
         [
@@ -161,13 +245,22 @@ class ServiceTypeSeeder extends Seeder
                 ]
             );
 
+            // Idempotencia: limpiamos plantillas previas de este servicio.
+            // Borrar las stage templates arrastra (cascade) sus checklist items
+            // de etapa, pero NO los de nivel servicio (transversales) ni las
+            // plantillas de tareas, que removemos explícitamente.
             $serviceType->stageTemplates()->delete();
+            ServiceChecklistItem::where('service_type_id', $serviceType->id)
+                ->whereNull('service_stage_template_id')
+                ->delete();
+            ServiceTaskTemplate::where('service_type_id', $serviceType->id)->delete();
 
             foreach ($service['stages'] as $orden => $stage) {
                 $template = ServiceStageTemplate::create([
                     'service_type_id' => $serviceType->id,
                     'orden' => $orden + 1,
                     'nombre' => $stage['nombre'],
+                    'descripcion' => $stage['descripcion'] ?? null,
                     'rol_responsable_default' => $stage['rol_default'] ?? null,
                     'sla_dias' => $stage['sla_dias'] ?? null,
                 ]);
@@ -180,6 +273,31 @@ class ServiceTypeSeeder extends Seeder
                         'orden' => $itemOrden + 1,
                     ]);
                 }
+            }
+
+            // Entregables transversales del acompañamiento (checklist a nivel
+            // servicio: ProcessService los engancha a la primera etapa del proceso).
+            foreach (($service['transversales'] ?? []) as $itemOrden => $descripcion) {
+                ServiceChecklistItem::create([
+                    'service_type_id' => $serviceType->id,
+                    'service_stage_template_id' => null,
+                    'descripcion' => $descripcion,
+                    'es_obligatorio' => false,
+                    'orden' => $itemOrden + 1,
+                ]);
+            }
+
+            // Rúbrica del tablero Kanban: tarjetas que se autogeneran al crear el proceso.
+            foreach (($service['tasks'] ?? []) as $taskOrden => $task) {
+                ServiceTaskTemplate::create([
+                    'service_type_id' => $serviceType->id,
+                    'orden' => $taskOrden + 1,
+                    'titulo' => $task['titulo'],
+                    'descripcion' => $task['descripcion'] ?? null,
+                    'prioridad' => $task['prioridad'] ?? 'media',
+                    'sla_dias' => $task['sla_dias'] ?? null,
+                    'es_activo' => true,
+                ]);
             }
         }
     }

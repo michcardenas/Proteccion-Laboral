@@ -16,6 +16,7 @@ class Document extends Model
         'email_ingestion_id',
         'process_stage_id',
         'task_id',
+        'visit_id',
         'client_id',
         'nombre',
         'ruta',
@@ -52,6 +53,11 @@ class Document extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    public function visit(): BelongsTo
+    {
+        return $this->belongsTo(Visit::class);
     }
 
     public function client(): BelongsTo

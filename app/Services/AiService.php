@@ -175,6 +175,81 @@ class AiService
     }
 
     /**
+     * Interpreta un plan de trabajo / contrato (texto plano ya extraído) y devuelve
+     * la estructura para configurar el proceso: etapas con entregables y fechas,
+     * entregables transversales y tareas del tablero Kanban.
+     *
+     * @param  string  $documentText  Texto plano del documento subido.
+     * @param  array   $context       ['today', 'process_code', 'client_name',
+     *                                 'service_type', 'fecha_apertura']
+     * @return array{
+     *     tipo_documento: string,
+     *     resumen: string,
+     *     etapas: array<int, array{nombre: string, descripcion: ?string, fecha_entrega: ?string, entregables: string[]}>,
+     *     transversales: string[],
+     *     tareas: array<int, array{titulo: string, descripcion: ?string, prioridad: string, fecha_limite: ?string}>,
+     *     usage: array{input_tokens: int, output_tokens: int},
+     *     request_hash: string,
+     *     latencia_ms: int
+     * }
+     *
+     * @throws \RuntimeException si la respuesta no trae las listas requeridas.
+     * @throws \JsonException    si la respuesta no es JSON válido.
+     */
+    public function extractWorkPlan(string $documentText, array $context = []): array
+    {
+        $prompt = $this->renderExtractWorkPlanPrompt($documentText, $context);
+
+        $response = $this->generateDraft($prompt, null, ['temperature' => 0.0]);
+
+        $parsed = $this->parseJsonResponse($response['text']);
+
+        $this->validateWorkPlanFields($parsed);
+
+        $parsed['tipo_documento'] = $parsed['tipo_documento'] ?? 'desconocido';
+        $parsed['resumen'] = $parsed['resumen'] ?? '';
+        $parsed['etapas'] = array_values($parsed['etapas']);
+        $parsed['transversales'] = array_values($parsed['transversales']);
+        $parsed['tareas'] = array_values($parsed['tareas']);
+        $parsed['usage'] = $response['usage'];
+        $parsed['request_hash'] = $response['request_hash'];
+        $parsed['latencia_ms'] = $response['latencia_ms'];
+
+        return $parsed;
+    }
+
+    /**
+     * Renderiza la plantilla extract_work_plan.md con el documento y el contexto.
+     */
+    protected function renderExtractWorkPlanPrompt(string $documentText, array $context): string
+    {
+        $template = file_get_contents(resource_path('prompts/extract_work_plan.md'));
+
+        return strtr($template, [
+            '{{today}}' => $context['today'] ?? now()->toDateString(),
+            '{{process_code}}' => $context['process_code'] ?? '',
+            '{{client_name}}' => $context['client_name'] ?? '',
+            '{{service_type}}' => $context['service_type'] ?? '',
+            '{{fecha_apertura}}' => $context['fecha_apertura'] ?? '',
+            '{{document_text}}' => $documentText,
+        ]);
+    }
+
+    /**
+     * Valida que la extracción traiga las tres listas del contrato como arrays.
+     *
+     * @throws \RuntimeException
+     */
+    protected function validateWorkPlanFields(array $parsed): void
+    {
+        foreach (['etapas', 'transversales', 'tareas'] as $required) {
+            if (! array_key_exists($required, $parsed) || ! is_array($parsed[$required])) {
+                throw new \RuntimeException("extractWorkPlan: respuesta sin la lista requerida '{$required}'.");
+            }
+        }
+    }
+
+    /**
      * Renderiza la plantilla classify_email.md con los datos del payload y contexto.
      */
     protected function renderClassifyEmailPrompt(array $payload, array $context): string

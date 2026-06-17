@@ -1,8 +1,11 @@
 <?php
 
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -11,6 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Redirección "ya autenticado" consciente del guard: el cliente del portal
+        // va a su dashboard; el empleado, al panel admin.
+        RedirectIfAuthenticated::redirectUsing(function (Request $request) {
+            if (Auth::guard('client')->check()) {
+                return route('portal.dashboard');
+            }
+
+            return route('dashboard');
+        });
+
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,

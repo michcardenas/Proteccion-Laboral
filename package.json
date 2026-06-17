@@ -19,6 +19,8 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
+        "apexcharts": "^5.15.0",
+        "vue3-apexcharts": "^1.11.1",
         "vuedraggable": "^4.1.0"
     }
 }

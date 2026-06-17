@@ -38,6 +38,21 @@ class EmailRouter
         };
     }
 
+    /**
+     * Asignación MANUAL de un correo a un proceso (bandeja de revisión humana).
+     * Reusa la misma lógica idempotente que el enrutamiento automático: enlaza
+     * el proceso, deja el comentario-resumen en su historial y registra los
+     * adjuntos como Documents. NO cambia el status: eso lo decide el controlador.
+     */
+    public function assignToProcess(EmailIngestion $ingestion, Process $process): void
+    {
+        $ingestion->process_id = $process->id;
+        $ingestion->save();
+
+        $this->attachComment($process, $ingestion);
+        $this->attachAttachmentsAsDocuments($process, $ingestion);
+    }
+
     // ------------------------------------------------------------------
     // Ramas por acción
     // ------------------------------------------------------------------

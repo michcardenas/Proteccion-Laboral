@@ -7,7 +7,12 @@
       "Bash(php -l app/Services/ProcessSummaryService.php)",
       "Bash(php -l app/Services/EmailRouter.php)",
       "Bash(echo \"exit:$?\")",
-      "Bash(php -l app/Http/Controllers/Admin/DocumentController.php)"
+      "Bash(php -l app/Http/Controllers/Admin/DocumentController.php)",
+      "Bash(git check-ignore *)",
+      "Bash(php -l app/Http/Controllers/Auth/ClientSessionController.php)",
+      "Bash(php -l app/Http/Controllers/Portal/DashboardController.php)",
+      "Bash(php -l app/Http/Controllers/Admin/VisitController.php)",
+      "Bash(php -l app/Http/Controllers/Admin/ClientController.php)"
     ]
   }
 }
