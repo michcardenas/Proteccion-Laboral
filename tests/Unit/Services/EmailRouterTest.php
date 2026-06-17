@@ -308,4 +308,39 @@ class EmailRouterTest extends TestCase
 
         $this->assertSame(1, $process->comments()->count());
     }
+
+    // === asignación manual (bandeja de revisión) ===
+
+    public function test_assign_to_process_links_and_attaches_once(): void
+    {
+        $process = $this->makeProcess('PL-MAN-1');
+
+        $ing = $this->makeIngestion(
+            [
+                'action' => 'requiere_revision_humana',
+                'confidence' => 0.4,
+                'summary' => 'Correo dudoso asignado a mano',
+            ],
+            [
+                'status' => EmailIngestion::STATUS_NEEDS_REVIEW,
+                'message_id' => 'msg-man-1',
+                'raw_payload' => ['attachments' => [
+                    ['filename' => 'soporte.pdf', 'mime_type' => 'application/pdf', 'size' => 1024],
+                ]],
+            ]
+        );
+
+        // Idempotente: asignar dos veces no duplica comentario ni documento.
+        $this->router()->assignToProcess($ing, $process);
+        $this->router()->assignToProcess($ing->fresh(), $process);
+
+        $ing->refresh();
+        $this->assertSame($process->id, $ing->process_id);
+        $this->assertSame(1, $process->comments()->count());
+        $this->assertDatabaseHas('documents', [
+            'email_ingestion_id' => $ing->id,
+            'ruta' => 'inbound/msg-man-1/soporte.pdf',
+        ]);
+        $this->assertSame(1, Document::where('email_ingestion_id', $ing->id)->count());
+    }
 }

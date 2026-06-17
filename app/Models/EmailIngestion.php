@@ -15,6 +15,7 @@ class EmailIngestion extends Model
     public const STATUS_PROCESSED = 'processed';
     public const STATUS_NEEDS_REVIEW = 'needs_review';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_DISCARDED = 'descartado';
 
     protected $fillable = [
         'message_id',
@@ -29,11 +30,13 @@ class EmailIngestion extends Model
         'ai_classification',
         'error',
         'processed_at',
+        'respondido_at',
     ];
 
     protected $casts = [
         'received_at' => 'datetime',
         'processed_at' => 'datetime',
+        'respondido_at' => 'datetime',
         'raw_payload' => 'array',
         'ai_classification' => 'array',
     ];

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Spatie\Activitylog\LogOptions;
@@ -60,6 +61,16 @@ class Task extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+
+    /**
+     * Correos ingestados del proceso adjuntados a esta tarjeta como contexto.
+     */
+    public function emailIngestions(): BelongsToMany
+    {
+        return $this->belongsToMany(EmailIngestion::class, 'task_email_ingestion')
+            ->withPivot('attached_by')
+            ->withTimestamps();
     }
 
     public function getActivitylogOptions(): LogOptions

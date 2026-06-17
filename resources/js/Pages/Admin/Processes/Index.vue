@@ -68,6 +68,7 @@ const modalidadVariants = {
     estrategico: 'blue',
     capacitacion: 'green',
     prediagnostico: 'yellow',
+    diagnostico_implementacion: 'teal',
 };
 
 const formatDate = (iso) => iso ? new Date(iso).toLocaleDateString('es-CO') : '—';

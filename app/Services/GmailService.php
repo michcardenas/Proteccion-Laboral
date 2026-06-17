@@ -6,6 +6,7 @@ use App\Models\IntegrationToken;
 use Google\Client as GoogleClient;
 use Google\Service\Gmail;
 use Google\Service\Gmail\Label;
+use Google\Service\Gmail\Message as GmailMessage;
 use Google\Service\Gmail\ModifyMessageRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -185,6 +186,73 @@ class GmailService
         );
     }
 
+    /**
+     * Envía una respuesta a través de la cuenta de Gmail conectada.
+     *
+     * @param  array  $params  [
+     *     'to' => string (requerido), 'subject' => string (requerido), 'body' => string (requerido),
+     *     'thread_id' => ?string (para responder en el mismo hilo),
+     *     'in_reply_to' => ?string (Message-ID original, para In-Reply-To/References)
+     * ]
+     * @return string  Id del mensaje enviado.
+     */
+    public function sendReply(array $params): string
+    {
+        $raw = $this->buildRawMessage(
+            $params['to'],
+            $params['subject'],
+            $params['body'],
+            $params['in_reply_to'] ?? null,
+        );
+
+        $message = new GmailMessage(['raw' => $raw]);
+        if (! empty($params['thread_id'])) {
+            $message->setThreadId($params['thread_id']);
+        }
+
+        return $this->gmail()->users_messages->send('me', $message)->getId();
+    }
+
+    /**
+     * Construye un mensaje MIME (texto plano UTF-8) y lo codifica en base64url,
+     * como exige la API de Gmail. Método puro: testeable sin tocar la red.
+     */
+    public function buildRawMessage(string $to, string $subject, string $body, ?string $inReplyTo = null): string
+    {
+        $headers = [
+            'To: '.$to,
+            'Subject: '.$this->encodeHeader($subject),
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: 8bit',
+        ];
+
+        // Enhebra la respuesta con el correo original.
+        if ($inReplyTo) {
+            array_splice($headers, 2, 0, [
+                'In-Reply-To: '.$inReplyTo,
+                'References: '.$inReplyTo,
+            ]);
+        }
+
+        $mime = implode("\r\n", $headers)."\r\n\r\n".$body;
+
+        return rtrim(strtr(base64_encode($mime), '+/', '-_'), '=');
+    }
+
+    /**
+     * Codifica un header con caracteres no ASCII como encoded-word (RFC 2047),
+     * necesario para asuntos con tildes/ñ.
+     */
+    protected function encodeHeader(string $value): string
+    {
+        if (preg_match('/[^\x20-\x7E]/', $value)) {
+            return '=?UTF-8?B?'.base64_encode($value).'?=';
+        }
+
+        return $value;
+    }
+
     // ------------------------------------------------------------------
     // Helpers de autorización / acceso a la API
     // ------------------------------------------------------------------
@@ -297,6 +365,10 @@ class GmailService
 
         return [
             'message_id' => $raw['id'] ?? '',
+            // Datos para enhebrar respuestas: id del hilo de Gmail y el header
+            // RFC Message-ID original (para In-Reply-To/References).
+            'thread_id' => $raw['threadId'] ?? '',
+            'message_id_header' => $this->extractHeader($headers, 'Message-ID'),
             'from' => $this->extractHeader($headers, 'From'),
             'to' => $this->extractHeader($headers, 'To'),
             'subject' => $this->extractHeader($headers, 'Subject'),

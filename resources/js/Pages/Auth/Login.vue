@@ -89,5 +89,11 @@ const submit = () => {
                 <span v-else>Iniciar sesión</span>
             </button>
         </form>
+
+        <div class="mt-8 border-t border-slate-200 pt-5 text-center">
+            <Link :href="route('portal.login')" class="text-sm font-medium text-slate-500 transition hover:text-brand-900">
+                ¿Eres cliente de Protección Laboral? Ingresa con tu NIT →
+            </Link>
+        </div>
     </GuestLayout>
 </template>

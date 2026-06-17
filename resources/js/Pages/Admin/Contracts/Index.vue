@@ -67,6 +67,7 @@ const modalidadServicioVariants = {
     estrategico: 'blue',
     capacitacion: 'green',
     prediagnostico: 'yellow',
+    diagnostico_implementacion: 'teal',
 };
 
 const formatCurrency = (v) => {

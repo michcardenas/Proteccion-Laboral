@@ -11,7 +11,8 @@ class EnsureUserIsActive
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
+        // Solo aplica a empleados (guard web); el cliente del portal no tiene is_active.
+        $user = $request->user('web');
 
         if ($user && ! $user->is_active) {
             Auth::guard('web')->logout();

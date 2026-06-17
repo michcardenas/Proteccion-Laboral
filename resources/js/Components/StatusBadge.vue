@@ -5,7 +5,7 @@ const props = defineProps({
     variant: {
         type: String,
         default: 'gray',
-        validator: (v) => ['gray', 'green', 'red', 'yellow', 'blue', 'indigo', 'purple'].includes(v),
+        validator: (v) => ['gray', 'green', 'red', 'yellow', 'blue', 'indigo', 'purple', 'teal'].includes(v),
     },
     label: { type: String, required: true },
 });
@@ -19,6 +19,7 @@ const classes = computed(() => {
         blue: 'bg-blue-50 text-blue-700 ring-blue-200',
         indigo: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
         purple: 'bg-purple-50 text-purple-700 ring-purple-200',
+        teal: 'bg-teal-50 text-teal-700 ring-teal-200',
     };
     return map[props.variant];
 });

@@ -79,6 +79,25 @@ const availableAssignees = computed(() =>
     props.potentialAssignees.filter((u) => !assignedIds.value.includes(u.id))
 );
 
+// ===== Portal del cliente =====
+const showPortalPanel = ref(false);
+const portalForm = useForm({ password: '' });
+// Credenciales recién generadas (vienen por flash, se muestran una sola vez).
+const portalCreds = computed(() => page.props.flash?.portal_credentials ?? null);
+
+const openPortalPanel = () => { showPortalPanel.value = true; };
+
+const submitPortal = () => {
+    portalForm.post(route('admin.clients.portal.activate', props.client.id), {
+        preserveScroll: true,
+        onSuccess: () => portalForm.reset(),
+    });
+};
+
+const deactivatePortal = () => {
+    router.post(route('admin.clients.portal.deactivate', props.client.id), {}, { preserveScroll: true });
+};
+
 const processEstadoVariants = {
     abierto: 'blue',
     en_curso: 'indigo',
@@ -137,6 +156,20 @@ const contractEstadoVariants = {
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
+                        <button
+                            v-if="can('clients.update')"
+                            type="button"
+                            @click="openPortalPanel"
+                            class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition"
+                            :class="client.portal_activo
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z" />
+                            </svg>
+                            {{ client.portal_activo ? 'Portal activo' : 'Activar portal' }}
+                        </button>
                         <Link
                             v-if="can('clients.update')"
                             :href="route('admin.clients.edit', client.id)"
@@ -145,6 +178,45 @@ const contractEstadoVariants = {
                             Editar
                         </Link>
                     </div>
+                </div>
+
+                <!-- Panel del portal del cliente -->
+                <div v-if="showPortalPanel" class="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-semibold text-indigo-900">Portal del cliente</p>
+                            <p class="mt-0.5 text-xs text-indigo-700/80">
+                                El cliente ingresa en <code>/portal/login</code> con su NIT <strong>{{ client.nit }}</strong> y la contraseña que definas aquí.
+                            </p>
+                            <p v-if="!client.puede_acceder_portal && client.portal_activo" class="mt-2 rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+                                Aviso: este cliente no tiene aún un proceso con abogado asignado, así que no podrá entrar hasta que se le asigne uno.
+                            </p>
+                        </div>
+                        <button type="button" class="text-indigo-400 hover:text-indigo-700" @click="showPortalPanel = false">✕</button>
+                    </div>
+
+                    <!-- Credenciales recién generadas (se muestran una sola vez) -->
+                    <div v-if="portalCreds" class="mt-3 rounded-lg border border-emerald-200 bg-white p-3">
+                        <p class="text-xs font-semibold text-emerald-700">✓ Credenciales del portal — cópialas y compártelas con el cliente (no se volverán a mostrar):</p>
+                        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div class="rounded-md bg-slate-50 px-3 py-2 text-sm ring-1 ring-inset ring-slate-200"><span class="text-slate-400">NIT:</span> <strong class="text-slate-800">{{ portalCreds.nit }}</strong></div>
+                            <div class="rounded-md bg-slate-50 px-3 py-2 text-sm ring-1 ring-inset ring-slate-200"><span class="text-slate-400">Contraseña:</span> <strong class="font-mono text-slate-800">{{ portalCreds.password }}</strong></div>
+                        </div>
+                    </div>
+
+                    <form class="mt-4 flex flex-wrap items-end gap-3" @submit.prevent="submitPortal">
+                        <div class="flex-1 min-w-[12rem]">
+                            <label class="block text-xs font-medium text-slate-600">{{ client.portal_activo ? 'Cambiar contraseña (opcional)' : 'Contraseña (opcional, se genera si la dejas vacía)' }}</label>
+                            <TextInput v-model="portalForm.password" type="text" class="mt-1 w-full" placeholder="Mínimo 6 caracteres" />
+                            <p v-if="portalForm.errors.password" class="mt-1 text-xs text-rose-600">{{ portalForm.errors.password }}</p>
+                        </div>
+                        <button type="submit" :disabled="portalForm.processing" class="rounded-md bg-brand-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 disabled:opacity-60">
+                            {{ portalForm.processing ? 'Guardando…' : (client.portal_activo ? 'Actualizar contraseña' : 'Activar y generar acceso') }}
+                        </button>
+                        <button v-if="client.portal_activo" type="button" @click="deactivatePortal" class="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100">
+                            Desactivar
+                        </button>
+                    </form>
                 </div>
 
                 <dl class="mt-6 grid grid-cols-1 gap-4 border-t border-slate-100 pt-6 sm:grid-cols-2 lg:grid-cols-4">

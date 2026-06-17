@@ -17,6 +17,7 @@ class ServiceType extends Model
         'estrategico',
         'capacitacion',
         'prediagnostico',
+        'diagnostico_implementacion',
     ];
 
     protected $fillable = [
@@ -34,6 +35,16 @@ class ServiceType extends Model
     public function stageTemplates(): HasMany
     {
         return $this->hasMany(ServiceStageTemplate::class)->orderBy('orden');
+    }
+
+    /**
+     * Plantillas de tarjetas del tablero Kanban para este servicio (rúbrica).
+     */
+    public function taskTemplates(): HasMany
+    {
+        return $this->hasMany(ServiceTaskTemplate::class)
+            ->where('es_activo', true)
+            ->orderBy('orden');
     }
 
     public function checklistItems(): HasMany
