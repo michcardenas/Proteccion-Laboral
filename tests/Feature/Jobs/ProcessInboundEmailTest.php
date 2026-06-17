@@ -60,6 +60,8 @@ class ProcessInboundEmailTest extends TestCase
     protected function runJob(EmailIngestion $ing): void
     {
         $gmail = Mockery::mock(GmailService::class); // sin adjuntos no se invoca getAttachments
+        // Tras procesar con éxito el pipeline marca el correo como leído (best-effort).
+        $gmail->shouldReceive('markAsRead')->zeroOrMoreTimes()->andReturnNull();
         (new ProcessInboundEmail($ing->id))->handle($gmail, app(AiService::class), app(EmailRouter::class));
     }
 
