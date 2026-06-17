@@ -15,11 +15,12 @@ sondee Gmail y procese los correos entrantes automáticamente.
 
 ---
 
-## Opción A — Recomendada (cola `sync`, un solo cron)
+## Opción A — Recomendada (comando directo `gmail:poll`, un solo cron)
 
-Con la cola en `sync`, cuando el scheduler dispara `PollGmailInbox` todo el pipeline
-(traer + clasificar + enrutar) corre inline en el mismo proceso del cron. No hace
-falta worker ni un segundo cron.
+El cron llama directamente al comando `gmail:poll`, que sondea Gmail y procesa los
+correos inline (con `QUEUE_CONNECTION=sync`). **No depende del timing del scheduler**
+(`everyTwoMinutes`): la frecuencia la define el propio cron, así que funciona con
+cualquier intervalo que permita tu plan de Hostinger. Sin worker, sin segundo cron.
 
 ### 1. `.env` en Hostinger
 
@@ -29,15 +30,27 @@ APP_DEBUG=false
 QUEUE_CONNECTION=sync
 ```
 
-### 2. Cron en hPanel → Avanzado → Cron Jobs (cada minuto)
+### 2. Cron en hPanel → Avanzado → Cron Jobs
 
 ```
-* * * * * cd /home/uXXXXXXXX/domains/TU-DOMINIO/public_html && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+*/2 * * * * cd /home/uXXXXXXXX/domains/TU-DOMINIO/public_html && /usr/bin/php8.2 artisan gmail:poll >> /dev/null 2>&1
 ```
 
-> El scheduler evalúa el `everyTwoMinutes()` en cada corrida; por eso el cron debe
-> correr **cada minuto** (`* * * * *`). Si el plan limita el intervalo mínimo del
-> cron, alinea la frecuencia (ver "Notas").
+> Ajusta el intervalo a gusto: `*/2` (cada 2 min), `*/5` (cada 5), etc. No hay que
+> tocar nada en el código al cambiarlo. Opcional: `gmail:poll --max=100` para subir
+> el tope de correos por corrida (default 50).
+
+### Alternativa: vía scheduler (`schedule:run`)
+
+Si prefieres dejar la frecuencia en `routes/console.php` (`everyTwoMinutes()`), el
+cron debe correr **cada minuto** para que el scheduler la evalúe:
+
+```
+* * * * * cd /home/uXXXXXXXX/domains/TU-DOMINIO/public_html && /usr/bin/php8.2 artisan schedule:run >> /dev/null 2>&1
+```
+
+Requiere que el plan permita el intervalo `* * * * *`. El comando `gmail:poll` evita
+esa restricción, por eso es el recomendado.
 
 ---
 
@@ -84,9 +97,7 @@ QUEUE_CONNECTION=database
 1. Conecta la cuenta de Gmail en la app: **Integraciones → Gmail** (rol director).
 2. Ejecuta el sondeo a mano una vez por SSH para validar:
    ```
-   php artisan schedule:run        # corre lo que esté "due"
-   # o forzar el job directo:
-   php artisan tinker --execute="dispatch_sync(new App\Jobs\PollGmailInbox());"
+   php8.2 artisan gmail:poll
    ```
 3. Revisa que aparezcan filas en `email_ingestions` y, lo no enrutado, en la
    bandeja **Revisión de correos** (sidebar, director/coordinador).
