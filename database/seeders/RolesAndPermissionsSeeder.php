@@ -12,6 +12,7 @@ class RolesAndPermissionsSeeder extends Seeder
     public const ROLES = [
         'director',
         'coordinador',
+        'abogado_senior',
         'abogado_interno',
         'abogado_externo',
         'apoderado',
@@ -73,8 +74,28 @@ class RolesAndPermissionsSeeder extends Seeder
             'ai.use', 'ai.usage_view',
             'emails.review',
         ],
+        // Abogado senior: perfil operativo fuerte (Dra. Camila). Ve TODOS los clientes,
+        // gestiona procesos/contratos y asigna, pero NO crea clientes (reservado a
+        // coordinador/director) ni administra usuarios/roles/ajustes.
+        'abogado_senior' => [
+            'clients.view',
+            'services.view',
+            'contracts.view', 'contracts.create', 'contracts.update',
+            'processes.view', 'processes.create', 'processes.update', 'processes.assign', 'processes.close',
+            'stages.update', 'stages.complete',
+            'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',
+            'visits.manage',
+            'documents.view', 'documents.upload', 'documents.share_with_client',
+            'comments.view', 'comments.create',
+            'invoices.view',
+            'payments.view', 'payments.manage',
+            'dashboard.executive', 'dashboard.operational',
+            'ai.use', 'ai.usage_view',
+            'emails.review',
+        ],
         'abogado_interno' => [
-            'clients.view_assigned',
+            // clients.view (todos): las abogadas piden que todos vean cada cliente creado.
+            'clients.view',
             'services.view',
             'contracts.view',
             'processes.view_assigned', 'processes.update',
@@ -88,7 +109,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'ai.use',
         ],
         'abogado_externo' => [
-            'clients.view_assigned',
+            'clients.view',
             'services.view',
             'contracts.view',
             'processes.view_assigned', 'processes.update',
@@ -101,7 +122,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'ai.use',
         ],
         'apoderado' => [
-            'clients.view_assigned',
+            'clients.view',
             'processes.view_assigned', 'processes.update',
             'stages.update', 'stages.complete',
             'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',

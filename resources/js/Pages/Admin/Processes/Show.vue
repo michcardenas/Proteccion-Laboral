@@ -256,6 +256,22 @@ function deletePago(id) {
     });
 }
 
+// Soporte/factura adjunto a cada pago
+function onSoportePagoChange(pagoId, e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    router.post(
+        route('admin.processes.payments.documents.store', [props.process.id, pagoId]),
+        { archivo: file },
+        { preserveScroll: true, forceFormData: true, onFinish: () => { if (e.target) e.target.value = ''; } },
+    );
+}
+function eliminarSoportePago(pagoId, docId) {
+    router.delete(route('admin.processes.payments.documents.destroy', [props.process.id, pagoId, docId]), {
+        preserveScroll: true,
+    });
+}
+
 const estadoVariants = {
     abierto: 'blue',
     en_curso: 'indigo',
@@ -976,6 +992,35 @@ const isLate = (stage) => {
                                     <div class="font-medium text-slate-800">{{ p.concepto }}</div>
                                     <div v-if="p.referencia" class="text-xs text-slate-400">Ref: {{ p.referencia }}</div>
                                     <div v-if="p.notas" class="text-xs text-slate-400">{{ p.notas }}</div>
+                                    <!-- Soportes/facturas del pago -->
+                                    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                        <span
+                                            v-for="d in (p.documentos || [])"
+                                            :key="d.id"
+                                            class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                                        >
+                                            <a :href="route('admin.documents.download', d.id)" target="_blank" class="hover:text-slate-900">📎 {{ d.nombre }}</a>
+                                            <button
+                                                v-if="can('payments.manage')"
+                                                type="button"
+                                                class="text-rose-400 hover:text-rose-700"
+                                                title="Quitar soporte"
+                                                @click="eliminarSoportePago(p.id, d.id)"
+                                            >✕</button>
+                                        </span>
+                                        <label
+                                            v-if="can('payments.manage')"
+                                            class="inline-flex cursor-pointer items-center gap-1 rounded border border-dashed border-slate-300 px-2 py-0.5 text-xs text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                                        >
+                                            + Soporte
+                                            <input
+                                                type="file"
+                                                class="hidden"
+                                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.txt"
+                                                @change="onSoportePagoChange(p.id, $event)"
+                                            />
+                                        </label>
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 text-slate-600">{{ metodoLabels[p.metodo] || p.metodo }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-emerald-700">{{ fmtMoneda(p.monto) }}</td>

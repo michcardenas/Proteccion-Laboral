@@ -17,6 +17,7 @@ class Document extends Model
         'process_stage_id',
         'task_id',
         'visit_id',
+        'payment_id',
         'client_id',
         'nombre',
         'ruta',
@@ -63,6 +64,11 @@ class Document extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
     }
 
     public function uploader(): BelongsTo

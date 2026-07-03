@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Document;
 use App\Models\Payment;
 use App\Models\Process;
 use Illuminate\Http\RedirectResponse;
@@ -62,6 +63,57 @@ class PaymentController extends Controller
         $payment->delete();
 
         return back()->with('success', 'Pago eliminado.');
+    }
+
+    /**
+     * POST /admin/processes/{process}/payments/{payment}/documents
+     * Adjunta el soporte/factura (PDF u otro) a un pago. El documento queda
+     * vinculado al pago Y al proceso (para reutilizar la autorización por proceso
+     * en la descarga).
+     */
+    public function storeDocument(Request $request, Process $process, Payment $payment): RedirectResponse
+    {
+        abort_unless($request->user()?->can('payments.manage'), 403);
+        abort_unless($payment->process_id === $process->id, 404);
+
+        $validated = $request->validate([
+            'archivo' => ['required', 'file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,webp,txt'],
+            'nombre' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $file = $validated['archivo'];
+        $ruta = $file->store("payments/process_{$process->id}", 'local');
+
+        Document::create([
+            'process_id' => $process->id,
+            'payment_id' => $payment->id,
+            'client_id' => $process->client_id,
+            'nombre' => $validated['nombre'] ?: $file->getClientOriginalName(),
+            'ruta' => $ruta,
+            'disco' => 'local',
+            'tipo' => 'soporte',
+            'mime' => $file->getClientMimeType(),
+            'tamano_bytes' => $file->getSize(),
+            'generado_por_ia' => false,
+            'subido_por' => $request->user()?->id,
+            'visible_cliente' => false,
+        ]);
+
+        return back()->with('success', 'Soporte adjuntado al pago.');
+    }
+
+    /**
+     * DELETE /admin/processes/{process}/payments/{payment}/documents/{document}
+     */
+    public function destroyDocument(Request $request, Process $process, Payment $payment, Document $document): RedirectResponse
+    {
+        abort_unless($request->user()?->can('payments.manage'), 403);
+        abort_unless($payment->process_id === $process->id, 404);
+        abort_unless($document->payment_id === $payment->id, 404);
+
+        $document->delete();
+
+        return back()->with('success', 'Soporte eliminado.');
     }
 
     private function validatePayment(Request $request): array

@@ -37,7 +37,14 @@ class DocumentController extends Controller
      */
     public function download(Request $request, Document $document): StreamedResponse|RedirectResponse
     {
-        $this->authorizeProcessAccess($request, $document->process);
+        // Documentos de proceso: se autorizan por el proceso. Documentos a nivel
+        // cliente (sin proceso, p.ej. PDF de contrato o diagnóstico pre-jurídico):
+        // se autorizan por la visibilidad del cliente.
+        if ($document->process_id !== null) {
+            $this->authorizeProcessAccess($request, $document->process);
+        } else {
+            $this->authorizeClientAccess($request, $document);
+        }
 
         // Documentos enlazados de Drive: la "ruta" es una URL → redirigir.
         if ($document->disco === 'gdrive') {
@@ -83,5 +90,26 @@ class DocumentController extends Controller
             || $process->coordinador_id === $user->id;
 
         abort_unless($esMio, 403);
+    }
+
+    /**
+     * Autoriza la descarga de un documento a nivel cliente (sin proceso). Aborta
+     * 404 si no tiene cliente, o 403 si el usuario tiene visibilidad restringida
+     * (`clients.view_assigned` sin `clients.view`) y no está asignado al cliente.
+     */
+    private function authorizeClientAccess(Request $request, Document $document): void
+    {
+        $client = $document->client;
+        abort_unless($client !== null, 404);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $restringido = ! $user->can('clients.view') && $user->can('clients.view_assigned');
+        if (! $restringido) {
+            return;
+        }
+
+        abort_unless($client->asignados()->where('users.id', $user->id)->exists(), 403);
     }
 }

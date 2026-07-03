@@ -106,6 +106,8 @@ class ClientController extends Controller
             'contracts.serviceType:id,nombre,modalidad',
             'processes.serviceType:id,nombre,modalidad',
             'processes.abogadoLider:id,name',
+            'documents' => fn ($q) => $q->whereNull('process_id')->latest(),
+            'documents.uploader:id,name',
         ]);
 
         $potentialAssignees = User::query()
@@ -171,9 +173,20 @@ class ClientController extends Controller
                     'service' => $p->serviceType ? ['nombre' => $p->serviceType->nombre, 'modalidad' => $p->serviceType->modalidad] : null,
                     'lider' => $p->abogadoLider?->name,
                 ]),
+                'documentos' => $client->documents->map(fn ($d) => [
+                    'id' => $d->id,
+                    'nombre' => $d->nombre,
+                    'tipo' => $d->tipo,
+                    'mime' => $d->mime,
+                    'tamano_bytes' => $d->tamano_bytes,
+                    'visible_cliente' => (bool) $d->visible_cliente,
+                    'subido_por' => $d->uploader?->name,
+                    'created_at' => $d->created_at?->toIso8601String(),
+                ]),
             ],
             'potentialAssignees' => $potentialAssignees,
             'estados' => self::ESTADOS,
+            'documentTypes' => \App\Http\Controllers\Admin\ClientDocumentController::DOCUMENT_TYPES,
         ]);
     }
 
