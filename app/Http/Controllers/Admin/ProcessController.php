@@ -155,7 +155,7 @@ class ProcessController extends Controller
             'comments' => fn ($q) => $q->with('user:id,name')->latest(),
             'visits' => fn ($q) => $q->with(['registradaPor:id,name', 'asistentes:id,name', 'documents'])->orderByDesc('fecha'),
             'emailIngestions' => fn ($q) => $q->orderByDesc('received_at'),
-            'payments' => fn ($q) => $q->with('registradoPor:id,name')->orderByDesc('fecha_pago'),
+            'payments' => fn ($q) => $q->with(['registradoPor:id,name', 'documents'])->orderByDesc('fecha_pago'),
         ]);
 
         $totalChecklist = $process->stages->sum(fn ($s) => $s->checklistResponses->count());
@@ -305,6 +305,12 @@ class ProcessController extends Controller
                     'notas' => $p->notas,
                     'registrado_por' => $p->registradoPor?->name,
                     'created_at' => $p->created_at?->toIso8601String(),
+                    'documentos' => $p->documents->map(fn ($d) => [
+                        'id' => $d->id,
+                        'nombre' => $d->nombre,
+                        'mime' => $d->mime,
+                        'tamano_bytes' => $d->tamano_bytes,
+                    ])->values(),
                 ]),
                 'pagos_total' => (float) $process->payments->sum('monto'),
                 'progress' => [

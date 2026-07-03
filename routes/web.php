@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\GmailIntegrationController;
 use App\Http\Controllers\Admin\ClientAssignmentController;
 use App\Http\Controllers\Admin\ClientContactController;
 use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\ClientDocumentController;
 use App\Http\Controllers\Admin\ContractController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\EmailReviewController;
@@ -84,6 +85,15 @@ Route::middleware(['auth', 'verified'])
             ->delete('clients/{client}', [ClientController::class, 'destroy'])
             ->name('clients.destroy');
 
+        // Documentos del cliente (PDF de contrato, diagnóstico pre-jurídico, etc.)
+        Route::middleware('permission:documents.upload')
+            ->post('clients/{client}/documents', [ClientDocumentController::class, 'store'])
+            ->name('clients.documents.store');
+
+        Route::middleware('permission:documents.delete')
+            ->delete('clients/{client}/documents/{document}', [ClientDocumentController::class, 'destroy'])
+            ->name('clients.documents.destroy');
+
         // Contratos
         Route::middleware('permission:contracts.view')->group(function () {
             Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
@@ -149,6 +159,10 @@ Route::middleware(['auth', 'verified'])
             Route::post('processes/{process}/payments', [PaymentController::class, 'store'])->name('processes.payments.store');
             Route::put('processes/{process}/payments/{payment}', [PaymentController::class, 'update'])->name('processes.payments.update');
             Route::delete('processes/{process}/payments/{payment}', [PaymentController::class, 'destroy'])->name('processes.payments.destroy');
+
+            // Soporte/factura adjunto a un pago
+            Route::post('processes/{process}/payments/{payment}/documents', [PaymentController::class, 'storeDocument'])->name('processes.payments.documents.store');
+            Route::delete('processes/{process}/payments/{payment}/documents/{document}', [PaymentController::class, 'destroyDocument'])->name('processes.payments.documents.destroy');
         });
 
         // Tablero global de pagos (reporte de finanzas).

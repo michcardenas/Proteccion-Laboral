@@ -88,15 +88,6 @@ const navSections = computed(() => {
         });
     }
 
-    operationItems.push({
-        label: 'Servicios',
-        href: '#',
-        icon: icons.services,
-        key: 'services',
-        disabled: true,
-        soon: true,
-    });
-
     if (operationItems.length) {
         sections.push({ title: 'Operación', items: operationItems });
     }
@@ -149,21 +140,13 @@ const navSections = computed(() => {
         });
     }
 
-    if (can('payments.view') || hasRole('contador') || can('invoices.view') || can('accounting.view')) {
-        const financeItems = [];
-
-        if (can('payments.view')) {
-            financeItems.push({
-                label: 'Facturación',
-                href: route('admin.payments.index'),
-                icon: icons.invoices,
-                key: 'admin.payments',
-            });
-        } else {
-            financeItems.push({ label: 'Facturación', href: '#', icon: icons.invoices, key: 'invoices', disabled: true, soon: true });
-        }
-
-        sections.push({ title: 'Finanzas', items: financeItems });
+    if (can('payments.view')) {
+        sections.push({
+            title: 'Finanzas',
+            items: [
+                { label: 'Facturación', href: route('admin.payments.index'), icon: icons.invoices, key: 'admin.payments' },
+            ],
+        });
     }
 
     return sections;

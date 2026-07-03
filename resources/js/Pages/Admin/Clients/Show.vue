@@ -11,6 +11,7 @@ const props = defineProps({
     client: Object,
     potentialAssignees: Array,
     estados: Array,
+    documentTypes: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -22,6 +23,7 @@ const tabs = [
     { key: 'asignados', label: 'Equipo asignado' },
     { key: 'contratos', label: 'Contratos' },
     { key: 'procesos', label: 'Procesos' },
+    { key: 'documentos', label: 'Documentos' },
 ];
 const activeTab = ref('resumen');
 
@@ -96,6 +98,46 @@ const submitPortal = () => {
 
 const deactivatePortal = () => {
     router.post(route('admin.clients.portal.deactivate', props.client.id), {}, { preserveScroll: true });
+};
+
+// ===== Documentos del cliente =====
+const docForm = useForm({ archivo: null, nombre: '', tipo: props.documentTypes[0] ?? 'contrato', visible_cliente: false });
+const docFileInput = ref(null);
+
+const onDocFileChange = (e) => {
+    docForm.archivo = e.target.files?.[0] ?? null;
+};
+
+const submitDocument = () => {
+    docForm.post(route('admin.clients.documents.store', props.client.id), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            docForm.reset();
+            if (docFileInput.value) docFileInput.value.value = '';
+        },
+    });
+};
+
+const docToDelete = ref(null);
+const deleteDocument = () => {
+    if (!docToDelete.value) return;
+    router.delete(route('admin.clients.documents.destroy', [props.client.id, docToDelete.value.id]), {
+        preserveScroll: true,
+        onFinish: () => { docToDelete.value = null; },
+    });
+};
+
+const formatFileSize = (bytes) => {
+    if (!bytes && bytes !== 0) return '—';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const tipoVariants = {
+    contrato: 'indigo', concepto: 'blue', informe: 'green',
+    escrito: 'yellow', comunicacion: 'blue', soporte: 'gray', otro: 'gray',
 };
 
 const processEstadoVariants = {
@@ -509,6 +551,105 @@ const contractEstadoVariants = {
                     </ul>
                 </div>
             </section>
+
+            <section v-else-if="activeTab === 'documentos'" class="space-y-4">
+                <!-- Subir documento (PDF del contrato, diagnóstico pre-jurídico, etc.) -->
+                <form
+                    v-if="can('documents.upload')"
+                    @submit.prevent="submitDocument"
+                    class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <FormField label="Archivo" :error="docForm.errors.archivo" required class="md:col-span-2">
+                            <input
+                                ref="docFileInput"
+                                type="file"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.txt"
+                                @change="onDocFileChange"
+                                class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-900 hover:file:bg-brand-100"
+                            />
+                            <p class="mt-1 text-xs text-slate-400">PDF, Word, Excel, imágenes o texto · máx. 20&nbsp;MB</p>
+                        </FormField>
+                        <FormField label="Tipo" :error="docForm.errors.tipo">
+                            <select
+                                v-model="docForm.tipo"
+                                class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                            >
+                                <option v-for="t in documentTypes" :key="t" :value="t">{{ t }}</option>
+                            </select>
+                        </FormField>
+                    </div>
+                    <FormField label="Nombre (opcional)" :error="docForm.errors.nombre" class="mt-4">
+                        <TextInput v-model="docForm.nombre" type="text" class="w-full" placeholder="Se usa el nombre del archivo si lo dejas vacío" />
+                    </FormField>
+                    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <label class="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                v-model="docForm.visible_cliente"
+                                class="rounded border-slate-300 text-brand-900 shadow-sm focus:ring-brand-900"
+                            />
+                            <span class="text-sm text-slate-700">Visible para el cliente en el portal</span>
+                        </label>
+                        <button
+                            type="submit"
+                            :disabled="docForm.processing || !docForm.archivo"
+                            class="rounded-md bg-brand-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-800 disabled:opacity-50"
+                        >
+                            {{ docForm.processing ? 'Subiendo…' : 'Adjuntar documento' }}
+                        </button>
+                    </div>
+                </form>
+
+                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <ul class="divide-y divide-slate-100">
+                        <li v-if="!client.documentos.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                            Aún no hay documentos adjuntos a este cliente.
+                        </li>
+                        <li
+                            v-for="d in client.documentos"
+                            :key="d.id"
+                            class="flex items-center justify-between gap-4 px-6 py-4"
+                        >
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-5 w-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="truncate text-sm font-medium text-slate-900">{{ d.nombre }}</p>
+                                        <StatusBadge :variant="tipoVariants[d.tipo] || 'gray'" :label="d.tipo" />
+                                        <StatusBadge v-if="d.visible_cliente" variant="green" label="Visible al cliente" />
+                                    </div>
+                                    <p class="truncate text-xs text-slate-500">
+                                        {{ formatFileSize(d.tamano_bytes) }}
+                                        <span v-if="d.subido_por"> · {{ d.subido_por }}</span>
+                                        <span v-if="d.created_at"> · {{ formatDate(d.created_at) }}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <a
+                                    :href="route('admin.documents.download', d.id)"
+                                    target="_blank"
+                                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                >
+                                    Ver / descargar
+                                </a>
+                                <button
+                                    v-if="can('documents.delete')"
+                                    @click="docToDelete = d"
+                                    class="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                                >
+                                    Eliminar
+                                </button>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </section>
         </div>
 
         <ConfirmModal
@@ -519,6 +660,16 @@ const contractEstadoVariants = {
             variant="danger"
             @close="contactToDelete = null"
             @confirm="deleteContact"
+        />
+
+        <ConfirmModal
+            :show="!!docToDelete"
+            title="Eliminar documento"
+            :message="docToDelete ? `¿Eliminar «${docToDelete.nombre}»? Esta acción no se puede deshacer.` : ''"
+            confirm-label="Sí, eliminar"
+            variant="danger"
+            @close="docToDelete = null"
+            @confirm="deleteDocument"
         />
     </AuthenticatedLayout>
 </template>
