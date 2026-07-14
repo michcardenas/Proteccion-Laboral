@@ -128,6 +128,45 @@ const deleteDocument = () => {
     });
 };
 
+// ===== Ficha de conocimiento (digest IA de los documentos) =====
+const regeneratingFicha = ref(false);
+const regenerateFicha = () => {
+    regeneratingFicha.value = true;
+    router.post(route('admin.clients.knowledge.regenerate', props.client.id), {}, {
+        preserveScroll: true,
+        onFinish: () => { regeneratingFicha.value = false; },
+    });
+};
+
+const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// Render markdown mínimo de la ficha (encabezados, negritas, viñetas) — sin dependencias.
+const fichaHtml = computed(() => {
+    const md = props.client.resumen_documental;
+    if (!md) return '';
+    const lines = escapeHtml(md).split('\n');
+    const out = [];
+    let inList = false;
+    const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+    for (const raw of lines) {
+        const line = raw.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        if (/^#{3,4}\s+/.test(line)) {
+            closeList();
+            out.push(`<h4 class="mt-3 mb-1 text-sm font-semibold text-slate-800">${line.replace(/^#{3,4}\s+/, '')}</h4>`);
+        } else if (/^[-*]\s+/.test(line)) {
+            if (!inList) { out.push('<ul class="ml-4 list-disc space-y-0.5">'); inList = true; }
+            out.push(`<li>${line.replace(/^[-*]\s+/, '')}</li>`);
+        } else if (line.trim() === '') {
+            closeList();
+        } else {
+            closeList();
+            out.push(`<p class="mt-1">${line}</p>`);
+        }
+    }
+    closeList();
+    return out.join('');
+});
+
 const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return '—';
     if (bytes < 1024) return `${bytes} B`;
@@ -199,7 +238,7 @@ const contractEstadoVariants = {
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button
-                            v-if="can('clients.update')"
+                            v-if="can('clients.activate_portal')"
                             type="button"
                             @click="openPortalPanel"
                             class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition"
@@ -553,6 +592,48 @@ const contractEstadoVariants = {
             </section>
 
             <section v-else-if="activeTab === 'documentos'" class="space-y-4">
+                <!-- Ficha de conocimiento: digest IA de TODOS los documentos del cliente.
+                     La IA la tiene "en mente" al redactar sobre este cliente en sus procesos. -->
+                <div class="rounded-xl border border-teal-200 bg-teal-50/40 p-5 shadow-sm">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-sm font-semibold text-teal-900">
+                                <span>🧠 Ficha de conocimiento del cliente (IA)</span>
+                                <span
+                                    v-if="client.ficha_desactualizada"
+                                    class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                                >Desactualizada</span>
+                                <span
+                                    v-else-if="client.resumen_documental"
+                                    class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                                >Al día</span>
+                            </h3>
+                            <p class="mt-0.5 text-xs text-slate-500">
+                                Resumen de todos los documentos, inyectado en el contexto de la IA al redactar sobre este cliente.
+                                <template v-if="client.resumen_documental_at"> · Actualizada {{ formatDate(client.resumen_documental_at) }}</template>
+                            </p>
+                        </div>
+                        <button
+                            v-if="can('ai.use')"
+                            type="button"
+                            @click="regenerateFicha"
+                            :disabled="regeneratingFicha"
+                            class="rounded-md border border-teal-300 bg-white px-3 py-1.5 text-xs font-semibold text-teal-800 shadow-sm hover:bg-teal-50 disabled:opacity-50"
+                        >
+                            {{ regeneratingFicha ? 'Generando…' : (client.resumen_documental ? 'Regenerar' : 'Generar ahora') }}
+                        </button>
+                    </div>
+
+                    <div
+                        v-if="client.resumen_documental"
+                        class="mt-3 max-h-96 overflow-y-auto rounded-lg border border-teal-100 bg-white p-4 text-sm leading-relaxed text-slate-700"
+                        v-html="fichaHtml"
+                    ></div>
+                    <p v-else class="mt-3 text-sm text-slate-500">
+                        Aún no hay ficha. Se genera automáticamente al subir documentos, o púlsala manualmente.
+                    </p>
+                </div>
+
                 <!-- Subir documento (PDF del contrato, diagnóstico pre-jurídico, etc.) -->
                 <form
                     v-if="can('documents.upload')"

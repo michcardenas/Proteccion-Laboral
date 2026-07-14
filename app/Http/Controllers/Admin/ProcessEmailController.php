@@ -8,6 +8,7 @@ use App\Models\EmailIngestion;
 use App\Models\Process;
 use App\Services\AiService;
 use App\Services\GmailService;
+use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,7 @@ class ProcessEmailController extends Controller
     public function __construct(
         private readonly AiService $ai,
         private readonly GmailService $gmail,
+        private readonly ProcessContextBuilder $context,
     ) {
     }
 
@@ -38,7 +40,8 @@ class ProcessEmailController extends Controller
 
         set_time_limit(180);
 
-        $process->loadMissing(['client:id,razon_social', 'serviceType:id,nombre']);
+        // Columnas completas para que el ProcessContextBuilder disponga del cliente sin restricción.
+        $process->loadMissing(['client', 'serviceType']);
 
         $prompt = $this->buildDraftPrompt($process, $ingestion, $request->string('instrucciones')->toString());
 
@@ -160,6 +163,8 @@ class ProcessEmailController extends Controller
             '',
             (string) $ingestion->body_text,
             '--- FIN DEL CORREO ---',
+            '',
+            $this->context->build($process),
             '',
         ];
 

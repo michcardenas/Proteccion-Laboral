@@ -22,6 +22,8 @@ Eres un abogado laboralista colombiano con experiencia en redacción de demandas
 
 {{evidence_summary}}
 
+{{expediente_contexto}}
+
 ## Contexto adicional aportado por el abogado
 
 {{contexto_adicional}}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RegenerateClientKnowledge;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\User;
@@ -52,6 +53,10 @@ class ClientDocumentController extends Controller
             'visible_cliente' => $request->boolean('visible_cliente'),
         ]);
 
+        // Regenera la ficha de conocimiento del cliente en segundo plano (auto).
+        // afterResponse: QUEUE_CONNECTION=sync → no bloquea la respuesta de la subida.
+        RegenerateClientKnowledge::dispatchAfterResponse($client->id);
+
         return back()->with('success', 'Documento adjuntado al cliente.');
     }
 
@@ -65,6 +70,9 @@ class ClientDocumentController extends Controller
         $this->authorizeClientAccess($request, $client);
 
         $document->delete();
+
+        // La staleness no detecta un borrado (nada "más nuevo" que comparar) → force.
+        RegenerateClientKnowledge::dispatchAfterResponse($client->id, true);
 
         return back()->with('success', 'Documento eliminado.');
     }

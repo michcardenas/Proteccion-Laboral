@@ -29,11 +29,14 @@ class Document extends Model
         'version',
         'subido_por',
         'visible_cliente',
+        'texto_extraido',
+        'texto_extraido_at',
     ];
 
     protected $casts = [
         'generado_por_ia' => 'boolean',
         'visible_cliente' => 'boolean',
+        'texto_extraido_at' => 'datetime',
     ];
 
     public function process(): BelongsTo

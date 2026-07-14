@@ -131,7 +131,7 @@ const navSections = computed(() => {
         });
     }
 
-    if (hasRole('director')) {
+    if (can('gmail.manage')) {
         sections.push({
             title: 'Integraciones',
             items: [

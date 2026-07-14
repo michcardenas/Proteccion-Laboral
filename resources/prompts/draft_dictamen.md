@@ -29,6 +29,8 @@ Eres un abogado laboralista colombiano. Redacta un **dictamen jurídico** profes
 5. **Conclusión y recomendación** — incluir nivel de certeza (alto / medio / bajo) y riesgos.
 6. **Próximos pasos sugeridos.**
 
+{{expediente_contexto}}
+
 ## Contexto adicional aportado por el abogado
 
 {{contexto_adicional}}

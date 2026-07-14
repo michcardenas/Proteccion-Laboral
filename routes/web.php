@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ClientAssignmentController;
 use App\Http\Controllers\Admin\ClientContactController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\ClientDocumentController;
+use App\Http\Controllers\Admin\ClientKnowledgeController;
 use App\Http\Controllers\Admin\ContractController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\EmailReviewController;
@@ -94,6 +95,11 @@ Route::middleware(['auth', 'verified'])
             ->delete('clients/{client}/documents/{document}', [ClientDocumentController::class, 'destroy'])
             ->name('clients.documents.destroy');
 
+        // Ficha de conocimiento del cliente (digest IA de sus documentos).
+        Route::middleware('permission:ai.use')
+            ->post('clients/{client}/knowledge/regenerate', [ClientKnowledgeController::class, 'regenerate'])
+            ->name('clients.knowledge.regenerate');
+
         // Contratos
         Route::middleware('permission:contracts.view')->group(function () {
             Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
@@ -171,7 +177,7 @@ Route::middleware(['auth', 'verified'])
             ->name('payments.index');
 
         // === Activación del portal del cliente ===
-        Route::middleware('permission:clients.update')->group(function () {
+        Route::middleware('permission:clients.activate_portal')->group(function () {
             Route::post('clients/{client}/portal/activate', [ClientController::class, 'activatePortal'])->name('clients.portal.activate');
             Route::post('clients/{client}/portal/deactivate', [ClientController::class, 'deactivatePortal'])->name('clients.portal.deactivate');
         });
@@ -228,7 +234,7 @@ Route::middleware(['auth', 'verified'])
             ->name('ai.usage');
 
         // === Gmail ===
-        Route::middleware('role:director')
+        Route::middleware('permission:gmail.manage')
             ->prefix('integrations/gmail')
             ->name('integrations.gmail.')
             ->group(function () {
