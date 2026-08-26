@@ -30,7 +30,22 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            // Sin esto la fábrica creaba usuarios desactivados y
+            // `EnsureUserIsActive` los echaba con «Tu cuenta está desactivada»:
+            // 12 pruebas de Breeze llevaban meses en rojo por un campo que la
+            // fábrica no conocía, no por un fallo de la aplicación. El defecto
+            // tiene que ser el del caso normal; para probar lo contrario está
+            // `inactive()`.
+            'is_active' => true,
         ];
+    }
+
+    /** Un empleado al que le revocaron el acceso. */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+        ]);
     }
 
     /**
