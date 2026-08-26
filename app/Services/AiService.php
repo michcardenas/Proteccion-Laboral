@@ -90,7 +90,10 @@ class AiService
                 'anthropic-version' => config('anthropic.anthropic_version'),
                 'content-type' => 'application/json',
             ])
-            ->timeout($this->timeout)
+            // `timeout` por llamada: una redacción corta se resuelve en segundos,
+            // pero un informe de 20.000 tokens no cabe en el tiempo por defecto.
+            // Es aditivo: quien no lo mande sigue con el de config/anthropic.php.
+            ->timeout($options['timeout'] ?? $this->timeout)
             // Backoff ante rate limit (429) o sobrecarga (529) de Anthropic.
             ->retry(
                 3,
