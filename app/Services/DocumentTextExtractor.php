@@ -17,7 +17,7 @@ use ZipArchive;
  */
 class DocumentTextExtractor
 {
-    public const SUPPORTED = ['pdf', 'docx', 'txt', 'md'];
+    public const SUPPORTED = ['pdf', 'docx', 'txt', 'md', 'csv'];
 
     public function extract(UploadedFile $file): string
     {
@@ -68,13 +68,40 @@ class DocumentTextExtractor
         return ($texto !== null && $texto !== '') ? $texto : null;
     }
 
+    /**
+     * Extrae texto de un contenido en memoria (p. ej. lo descargado de Drive) usando un
+     * archivo temporal. Tolerante: devuelve null si el formato no se soporta o falla.
+     */
+    public function fromBytes(string $contents, string $ext): ?string
+    {
+        $ext = strtolower($ext);
+        if (! in_array($ext, self::SUPPORTED, true)) {
+            return null;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'drive_').'.'.$ext;
+
+        try {
+            file_put_contents($tmp, $contents);
+            $texto = $this->normalize($this->fromPath($tmp, $ext));
+
+            return $texto !== '' ? $texto : null;
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
     private function fromPath(string $path, string $ext): string
     {
         return match ($ext) {
             'pdf' => $this->fromPdf($path),
             'docx' => $this->fromDocx($path),
-            'txt', 'md' => (string) file_get_contents($path),
-            default => throw new RuntimeException("Formato no soportado: .{$ext}. Usa PDF, DOCX o TXT."),
+            'txt', 'md', 'csv' => (string) file_get_contents($path),
+            default => throw new RuntimeException("Formato no soportado: .{$ext}. Usa PDF, DOCX, TXT o CSV."),
         };
     }
 

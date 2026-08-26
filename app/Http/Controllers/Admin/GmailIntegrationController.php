@@ -96,6 +96,12 @@ class GmailIntegrationController extends Controller
                 'is_expired' => $token->isExpired(),
                 'connected_by' => $token->connectedBy?->name,
                 'connected_at' => $token->created_at?->toIso8601String(),
+                // Scopes pedidos en la config que este token NO trae: se otorgan
+                // reconectando la cuenta (Google no amplía un token ya emitido).
+                'missing_scopes' => array_values(array_filter(
+                    config('gmail.scopes', []),
+                    fn (string $scope) => ! $token->hasScope($scope),
+                )),
             ] : [
                 'connected' => false,
             ],

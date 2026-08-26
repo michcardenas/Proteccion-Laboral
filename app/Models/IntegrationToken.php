@@ -39,6 +39,16 @@ class IntegrationToken extends Model
         return $this->belongsTo(User::class, 'connected_by_user_id');
     }
 
+    /**
+     * ¿El token otorgado incluye este scope? Un scope añadido a la configuración DESPUÉS
+     * de conectar la cuenta no está en el token: hay que reconectar para que Google lo
+     * emita. Es el caso de `drive.readonly` para la unidad compartida.
+     */
+    public function hasScope(string $scope): bool
+    {
+        return in_array($scope, $this->scopes ?? [], true);
+    }
+
     public function isExpired(): bool
     {
         return $this->expires_at !== null && $this->expires_at->isPast();

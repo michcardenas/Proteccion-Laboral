@@ -31,12 +31,15 @@ class Document extends Model
         'visible_cliente',
         'texto_extraido',
         'texto_extraido_at',
+        'drive_file_id',
+        'drive_modified_at',
     ];
 
     protected $casts = [
         'generado_por_ia' => 'boolean',
         'visible_cliente' => 'boolean',
         'texto_extraido_at' => 'datetime',
+        'drive_modified_at' => 'datetime',
     ];
 
     public function process(): BelongsTo

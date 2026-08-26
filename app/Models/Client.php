@@ -33,6 +33,9 @@ class Client extends Authenticatable
         'notas',
         'resumen_documental',
         'resumen_documental_at',
+        'drive_folder_id',
+        'drive_folder_name',
+        'drive_synced_at',
     ];
 
     protected $hidden = [
@@ -46,6 +49,7 @@ class Client extends Authenticatable
         'portal_last_login_at' => 'datetime',
         'password' => 'hashed',
         'resumen_documental_at' => 'datetime',
+        'drive_synced_at' => 'datetime',
     ];
 
     public function contactos(): HasMany
