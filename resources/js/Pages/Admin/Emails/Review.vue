@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const props = defineProps({
     correos: { type: Object, required: true },
@@ -86,10 +87,10 @@ function formatDate(iso) {
 
 // Estética del chip según la confianza de la IA.
 function confidenceClass(conf) {
-    if (conf === null || conf === undefined) return 'bg-slate-100 text-slate-600';
-    if (conf >= 0.7) return 'bg-amber-100 text-amber-800';
-    if (conf >= 0.5) return 'bg-orange-100 text-orange-800';
-    return 'bg-rose-100 text-rose-700';
+    if (conf === null || conf === undefined) return 'bg-brand-100 text-brand-600';
+    if (conf >= 0.7) return 'bg-warning-100 text-warning-800';
+    if (conf >= 0.5) return 'bg-warning-100 text-warning-800';
+    return 'bg-danger-100 text-danger-700';
 }
 
 const accionLabels = {
@@ -114,21 +115,19 @@ const flash = computed(() => page.props.flash ?? {});
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Revisión de correos
-            </h2>
+            <PageHeader titulo="Revisión de correos" help-key="emails" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
+        <div>
+            <div class="mx-auto max-w-5xl space-y-6">
 
                 <!-- Hero -->
-                <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-600 via-orange-600 to-rose-600 px-8 py-9 text-white shadow-lg">
+                <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-warning-500 via-warning-600 to-warning-700 px-8 py-9 text-white shadow-lg">
                     <div class="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-2xl"></div>
                     <div class="relative">
-                        <p class="text-xs uppercase tracking-[0.2em] text-amber-100">Bandeja de revisión humana</p>
+                        <p class="text-xs uppercase tracking-[0.2em] text-warning-100">Bandeja de revisión humana</p>
                         <h1 class="mt-2 text-3xl font-bold">{{ total }} {{ total === 1 ? 'correo pendiente' : 'correos pendientes' }}</h1>
-                        <p class="mt-2 max-w-2xl text-sm text-amber-50">
+                        <p class="mt-2 max-w-2xl text-sm text-warning-50">
                             Correos que la IA no pudo enrutar automáticamente (baja confianza, sin coincidencia de
                             cliente/proceso, o marcados para revisión). Asígnalos a un proceso o descártalos.
                         </p>
@@ -136,29 +135,29 @@ const flash = computed(() => page.props.flash ?? {});
                 </div>
 
                 <!-- Flash -->
-                <div v-if="flash.success" class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <div v-if="flash.success" class="rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
                     {{ flash.success }}
                 </div>
 
                 <!-- Filtros -->
-                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="rounded-xl border border-brand-200 bg-white p-4 shadow-sm">
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div class="sm:col-span-2">
-                            <label class="block text-xs font-medium text-slate-500">Buscar</label>
+                            <label class="block text-xs font-medium text-brand-500">Buscar</label>
                             <input
                                 v-model="buscar"
                                 type="text"
                                 placeholder="Remitente o asunto…"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                                class="mt-1 block w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-warning-500 focus:ring-warning-500"
                                 @keyup.enter="applyFilters"
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-500">Clasificación IA</label>
+                            <label class="block text-xs font-medium text-brand-500">Clasificación IA</label>
                             <select
                                 v-model="accion"
                                 @change="applyFilters"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                                class="mt-1 block w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-warning-500 focus:ring-warning-500"
                             >
                                 <option value="">Todas</option>
                                 <option v-for="a in acciones" :key="a" :value="a">{{ accionLabel(a) }}</option>
@@ -168,13 +167,13 @@ const flash = computed(() => page.props.flash ?? {});
                     <div class="mt-3 flex gap-2">
                         <button
                             @click="applyFilters"
-                            class="rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                            class="rounded-md bg-warning-600 px-3 py-2 text-sm font-medium text-white hover:bg-warning-700"
                         >
                             Aplicar
                         </button>
                         <button
                             @click="resetFilters"
-                            class="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                            class="rounded-md border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50"
                         >
                             Limpiar
                         </button>
@@ -182,14 +181,14 @@ const flash = computed(() => page.props.flash ?? {});
                 </div>
 
                 <!-- Empty state -->
-                <div v-if="!correos.data.length" class="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <div v-if="!correos.data.length" class="rounded-xl border border-dashed border-brand-300 bg-white p-12 text-center">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success-100 text-success-600">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-6 w-6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                     </div>
-                    <p class="mt-4 text-sm font-medium text-slate-700">Bandeja al día</p>
-                    <p class="mt-1 text-sm text-slate-500">No hay correos pendientes de revisión.</p>
+                    <p class="mt-4 text-sm font-medium text-brand-700">Bandeja al día</p>
+                    <p class="mt-1 text-sm text-brand-500">No hay correos pendientes de revisión.</p>
                 </div>
 
                 <!-- Lista -->
@@ -197,13 +196,13 @@ const flash = computed(() => page.props.flash ?? {});
                     <article
                         v-for="correo in correos.data"
                         :key="correo.id"
-                        class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                        class="rounded-xl border border-brand-200 bg-white p-5 shadow-sm"
                     >
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold text-slate-900">{{ correo.subject || '(sin asunto)' }}</p>
-                                <p class="mt-0.5 truncate text-xs text-slate-500">De: {{ correo.from || '—' }}</p>
-                                <p class="text-xs text-slate-400">{{ formatDate(correo.received_at) }}</p>
+                                <p class="truncate text-sm font-semibold text-brand-900">{{ correo.subject || '(sin asunto)' }}</p>
+                                <p class="mt-0.5 truncate text-xs text-brand-500">De: {{ correo.from || '—' }}</p>
+                                <p class="text-xs text-brand-400">{{ formatDate(correo.received_at) }}</p>
                             </div>
                             <div class="flex flex-shrink-0 items-center gap-2">
                                 <span
@@ -219,26 +218,26 @@ const flash = computed(() => page.props.flash ?? {});
                         </div>
 
                         <!-- Sugerencia de la IA -->
-                        <div v-if="correo.sugerencia.summary || correo.sugerencia.client_name || correo.sugerencia.process_code" class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                            <p v-if="correo.sugerencia.summary"><span class="font-medium text-slate-500">Resumen IA:</span> {{ correo.sugerencia.summary }}</p>
+                        <div v-if="correo.sugerencia.summary || correo.sugerencia.client_name || correo.sugerencia.process_code" class="mt-3 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-600">
+                            <p v-if="correo.sugerencia.summary"><span class="font-medium text-brand-500">Resumen IA:</span> {{ correo.sugerencia.summary }}</p>
                             <p v-if="correo.sugerencia.client_name" class="mt-1">
-                                <span class="font-medium text-slate-500">Cliente sugerido:</span> {{ correo.sugerencia.client_name }}
+                                <span class="font-medium text-brand-500">Cliente sugerido:</span> {{ correo.sugerencia.client_name }}
                             </p>
                             <p v-if="correo.sugerencia.process_code" class="mt-1">
-                                <span class="font-medium text-slate-500">Proceso sugerido:</span> {{ correo.sugerencia.process_code }}
+                                <span class="font-medium text-brand-500">Proceso sugerido:</span> {{ correo.sugerencia.process_code }}
                             </p>
                         </div>
 
                         <!-- Cuerpo -->
-                        <p v-if="correo.body_preview" class="mt-3 whitespace-pre-line text-sm text-slate-600">{{ correo.body_preview }}</p>
+                        <p v-if="correo.body_preview" class="mt-3 whitespace-pre-line text-sm text-brand-600">{{ correo.body_preview }}</p>
 
                         <!-- Acciones -->
-                        <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+                        <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-brand-100 pt-4">
                             <div class="min-w-[16rem] flex-1">
-                                <label class="block text-xs font-medium text-slate-500">Asignar al proceso</label>
+                                <label class="block text-xs font-medium text-brand-500">Asignar al proceso</label>
                                 <select
                                     v-model="seleccion[correo.id]"
-                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                                    class="mt-1 block w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-warning-500 focus:ring-warning-500"
                                 >
                                     <option value="">— Selecciona un proceso —</option>
                                     <option v-for="p in procesos" :key="p.id" :value="p.id">
@@ -249,14 +248,14 @@ const flash = computed(() => page.props.flash ?? {});
                             <button
                                 @click="asignar(correo)"
                                 :disabled="!seleccion[correo.id] || procesando[correo.id]"
-                                class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                class="rounded-md bg-warning-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-warning-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Asignar
                             </button>
                             <button
                                 @click="descartar(correo)"
                                 :disabled="procesando[correo.id]"
-                                class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                                class="rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-600 transition hover:bg-brand-50 disabled:opacity-50"
                             >
                                 Descartar
                             </button>
@@ -272,12 +271,12 @@ const flash = computed(() => page.props.flash ?? {});
                             :href="link.url"
                             preserve-scroll
                             class="rounded-md px-3 py-1.5 text-sm"
-                            :class="link.active ? 'bg-amber-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                            :class="link.active ? 'bg-warning-600 text-white' : 'border border-brand-200 bg-white text-brand-600 hover:bg-brand-50'"
                             v-html="link.label"
                         />
                         <span
                             v-else
-                            class="rounded-md px-3 py-1.5 text-sm text-slate-300"
+                            class="rounded-md px-3 py-1.5 text-sm text-brand-300"
                             v-html="link.label"
                         />
                     </template>

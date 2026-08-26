@@ -33,13 +33,13 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
 <template>
     <form @submit.prevent="emit('submit')" class="space-y-6">
         <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Identificación</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Identificación</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField label="Cliente" :error="form.errors.client_id" required>
                     <select
                         v-model="form.client_id"
                         :disabled="isEdit"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-slate-50"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-brand-50"
                     >
                         <option value="">— Selecciona empresa —</option>
                         <option v-for="c in clients" :key="c.id" :value="c.id">
@@ -52,7 +52,7 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
                     <select
                         v-model="form.service_type_id"
                         :disabled="isEdit"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-slate-50"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-brand-50"
                     >
                         <option value="">— Selecciona servicio —</option>
                         <option v-for="s in serviceTypes" :key="s.id" :value="s.id">
@@ -65,7 +65,7 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
                     <select
                         v-model="form.contract_id"
                         :disabled="!form.client_id"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-slate-50"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-brand-50"
                     >
                         <option value="">— Sin contrato —</option>
                         <option v-for="c in filteredContracts" :key="c.id" :value="c.id">{{ c.codigo }}</option>
@@ -84,17 +84,17 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
                     <textarea
                         v-model="form.descripcion"
                         rows="3"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     />
                 </FormField>
             </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Estado y fechas</h3>
+        <div class="border-t border-brand-100 pt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Estado y fechas</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <FormField label="Estado" :error="form.errors.estado" required>
-                    <select v-model="form.estado" class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
+                    <select v-model="form.estado" class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
                         <option v-for="e in estados" :key="e" :value="e">{{ e }}</option>
                     </select>
                 </FormField>
@@ -109,25 +109,25 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
             </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Equipo asignado</h3>
+        <div class="border-t border-brand-100 pt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Equipo asignado</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <FormField label="Abogado líder" :error="form.errors.abogado_lider_id" hint="Responsable principal del caso">
-                    <select v-model="form.abogado_lider_id" class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
+                    <select v-model="form.abogado_lider_id" class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
                         <option value="">— Sin asignar —</option>
                         <option v-for="u in staff" :key="u.id" :value="u.id">{{ u.name }} ({{ u.role }})</option>
                     </select>
                 </FormField>
 
                 <FormField label="Apoderado" :error="form.errors.apoderado_id" hint="Para procesos judiciales">
-                    <select v-model="form.apoderado_id" class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
+                    <select v-model="form.apoderado_id" class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
                         <option value="">— Sin asignar —</option>
                         <option v-for="u in staff" :key="u.id" :value="u.id">{{ u.name }} ({{ u.role }})</option>
                     </select>
                 </FormField>
 
                 <FormField label="Coordinador" :error="form.errors.coordinador_id" hint="Supervisor operativo">
-                    <select v-model="form.coordinador_id" class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
+                    <select v-model="form.coordinador_id" class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
                         <option value="">— Sin asignar —</option>
                         <option v-for="u in staff" :key="u.id" :value="u.id">{{ u.name }} ({{ u.role }})</option>
                     </select>
@@ -135,21 +135,21 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
             </div>
         </div>
 
-        <div v-if="!isEdit && stagesPreview.length" class="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5">
-            <h3 class="text-sm font-semibold text-indigo-900">Etapas que se crearán automáticamente</h3>
-            <p class="mt-1 text-xs text-indigo-800">Al crear el proceso se clonarán estas etapas desde la plantilla del servicio.</p>
-            <ol class="mt-3 space-y-1 text-sm text-indigo-900">
+        <div v-if="!isEdit && stagesPreview.length" class="rounded-xl border border-accent-100 bg-accent-50/50 p-5">
+            <h3 class="text-sm font-semibold text-accent-900">Etapas que se crearán automáticamente</h3>
+            <p class="mt-1 text-xs text-accent-800">Al crear el proceso se clonarán estas etapas desde la plantilla del servicio.</p>
+            <ol class="mt-3 space-y-1 text-sm text-accent-900">
                 <li v-for="(s, idx) in stagesPreview" :key="s.id" class="flex items-baseline gap-2">
-                    <span class="text-xs font-semibold text-indigo-700">{{ idx + 1 }}.</span>
+                    <span class="text-xs font-semibold text-accent-700">{{ idx + 1 }}.</span>
                     {{ s.nombre }}
                 </li>
             </ol>
         </div>
 
-        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-6">
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-brand-100 pt-6">
             <Link
                 :href="cancelHref || route('admin.processes.index')"
-                class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                class="rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
             >
                 Cancelar
             </Link>

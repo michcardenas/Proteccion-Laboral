@@ -20,12 +20,12 @@ const emit = defineEmits(['submit']);
 <template>
     <form @submit.prevent="emit('submit')" class="space-y-6">
         <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Identificación</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Identificación</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField label="Cliente" :error="form.errors.client_id" required>
                     <select
                         v-model="form.client_id"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     >
                         <option value="">— Selecciona empresa —</option>
                         <option v-for="c in clients" :key="c.id" :value="c.id">
@@ -37,7 +37,7 @@ const emit = defineEmits(['submit']);
                 <FormField label="Servicio" :error="form.errors.service_type_id" required>
                     <select
                         v-model="form.service_type_id"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     >
                         <option value="">— Selecciona servicio —</option>
                         <option v-for="s in serviceTypes" :key="s.id" :value="s.id">
@@ -53,7 +53,7 @@ const emit = defineEmits(['submit']);
                 <FormField label="Estado" :error="form.errors.estado" required>
                     <select
                         v-model="form.estado"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     >
                         <option v-for="e in estados" :key="e" :value="e">{{ e }}</option>
                     </select>
@@ -61,8 +61,8 @@ const emit = defineEmits(['submit']);
             </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Vigencia y valor</h3>
+        <div class="border-t border-brand-100 pt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Vigencia y valor</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <FormField label="Fecha de inicio" :error="form.errors.fecha_inicio" required>
                     <TextInput v-model="form.fecha_inicio" type="date" class="w-full" />
@@ -76,7 +76,7 @@ const emit = defineEmits(['submit']);
                 <FormField label="Modalidad de pago" :error="form.errors.modalidad_pago" required>
                     <select
                         v-model="form.modalidad_pago"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     >
                         <option v-for="m in modalidadesPago" :key="m" :value="m">{{ m }}</option>
                     </select>
@@ -84,23 +84,23 @@ const emit = defineEmits(['submit']);
             </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Notas internas</h3>
+        <div class="border-t border-brand-100 pt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Notas internas</h3>
             <div class="mt-3">
                 <FormField label="Observaciones" :error="form.errors.notas">
                     <textarea
                         v-model="form.notas"
                         rows="4"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     />
                 </FormField>
             </div>
         </div>
 
-        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-6">
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-brand-100 pt-6">
             <Link
                 :href="cancelHref || route('admin.contracts.index')"
-                class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                class="rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
             >
                 Cancelar
             </Link>

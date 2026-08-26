@@ -27,13 +27,13 @@ const submit = () => {
         <Head title="Iniciar sesión" />
 
         <div class="mb-8">
-            <h2 class="text-2xl font-semibold tracking-tight text-slate-900">Bienvenido de nuevo</h2>
-            <p class="mt-1 text-sm text-slate-500">
+            <h2 class="text-2xl font-semibold tracking-tight text-brand-900">Bienvenido de nuevo</h2>
+            <p class="mt-1 text-sm text-brand-500">
                 Inicia sesión para acceder al panel de Protección Laboral.
             </p>
         </div>
 
-        <div v-if="status" class="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <div v-if="status" class="mb-6 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-700">
             {{ status }}
         </div>
 
@@ -62,11 +62,11 @@ const submit = () => {
             </FormField>
 
             <div class="flex items-center justify-between">
-                <label class="flex items-center gap-2 text-sm text-slate-600">
+                <label class="flex items-center gap-2 text-sm text-brand-600">
                     <input
                         v-model="form.remember"
                         type="checkbox"
-                        class="rounded border-slate-300 text-brand-900 shadow-sm focus:ring-brand-900"
+                        class="rounded border-brand-300 text-brand-900 shadow-sm focus:ring-brand-900"
                     />
                     Recordarme
                 </label>
@@ -90,8 +90,8 @@ const submit = () => {
             </button>
         </form>
 
-        <div class="mt-8 border-t border-slate-200 pt-5 text-center">
-            <Link :href="route('portal.login')" class="text-sm font-medium text-slate-500 transition hover:text-brand-900">
+        <div class="mt-8 border-t border-brand-200 pt-5 text-center">
+            <Link :href="route('portal.login')" class="text-sm font-medium text-brand-500 transition hover:text-brand-900">
                 ¿Eres cliente de Protección Laboral? Ingresa con tu NIT →
             </Link>
         </div>

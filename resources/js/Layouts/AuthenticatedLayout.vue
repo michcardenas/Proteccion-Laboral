@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppSidebar from '@/Components/Sidebar/AppSidebar.vue';
 import Dropdown from '@/Components/Dropdown.vue';
+import HelpPanel from '@/Components/HelpPanel.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 
 const page = usePage();
@@ -31,11 +32,11 @@ watch(() => page.url, () => { sidebarOpen.value = false; });
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div class="min-h-screen bg-brand-50 font-sans text-brand-900">
         <!-- Mobile drawer overlay -->
         <div
             v-if="sidebarOpen"
-            class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden"
+            class="fixed inset-0 z-40 bg-brand-900/40 backdrop-blur-sm lg:hidden"
             @click="sidebarOpen = false"
         />
 
@@ -54,11 +55,11 @@ watch(() => page.url, () => { sidebarOpen.value = false; });
         <!-- Main column -->
         <div class="transition-[padding] duration-200 ease-out" :class="collapsed ? 'lg:pl-20' : 'lg:pl-72'">
             <!-- Topbar -->
-            <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur">
+            <header class="sticky top-0 z-30 border-b border-brand-200 bg-white/85 backdrop-blur">
                 <div class="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
                     <button
                         type="button"
-                        class="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+                        class="rounded-md p-2 text-brand-600 hover:bg-brand-100 hover:text-brand-900 lg:hidden"
                         @click="sidebarOpen = true"
                         aria-label="Abrir menú"
                     >
@@ -76,23 +77,23 @@ watch(() => page.url, () => { sidebarOpen.value = false; });
                             <template #trigger>
                                 <button
                                     type="button"
-                                    class="flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 text-sm transition hover:bg-slate-50"
+                                    class="flex items-center gap-2 rounded-full border border-brand-200 bg-white py-1 pl-1 pr-3 text-sm transition hover:bg-brand-50"
                                 >
                                     <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-900 text-[11px] font-semibold text-white">
                                         {{ initials }}
                                     </span>
-                                    <span class="hidden text-slate-700 sm:block">{{ user.name }}</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 text-slate-400">
+                                    <span class="hidden text-brand-700 sm:block">{{ user.name }}</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 text-brand-400">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
                                     </svg>
                                 </button>
                             </template>
 
                             <template #content>
-                                <div class="border-b border-slate-100 px-4 py-3">
-                                    <p class="text-sm font-medium text-slate-900">{{ user.name }}</p>
-                                    <p class="truncate text-xs text-slate-500">{{ user.email }}</p>
-                                    <p class="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-700">
+                                <div class="border-b border-brand-100 px-4 py-3">
+                                    <p class="text-sm font-medium text-brand-900">{{ user.name }}</p>
+                                    <p class="truncate text-xs text-brand-500">{{ user.email }}</p>
+                                    <p class="mt-1 inline-flex rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-brand-700">
                                         {{ userRoles[0] }}
                                     </p>
                                 </div>
@@ -106,11 +107,14 @@ watch(() => page.url, () => { sidebarOpen.value = false; });
                 </div>
             </header>
 
+            <!-- Ayuda contextual del módulo (la abre el botón del PageHeader) -->
+            <HelpPanel />
+
             <!-- Flash banners -->
-            <div v-if="flashSuccess" class="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm text-emerald-800 sm:px-6 lg:px-8">
+            <div v-if="flashSuccess" class="border-b border-success-200 bg-success-50 px-4 py-2 text-center text-sm text-success-800 sm:px-6 lg:px-8">
                 {{ flashSuccess }}
             </div>
-            <div v-if="flashError" class="border-b border-rose-200 bg-rose-50 px-4 py-2 text-center text-sm text-rose-800 sm:px-6 lg:px-8">
+            <div v-if="flashError" class="border-b border-danger-200 bg-danger-50 px-4 py-2 text-center text-sm text-danger-800 sm:px-6 lg:px-8">
                 {{ flashError }}
             </div>
 

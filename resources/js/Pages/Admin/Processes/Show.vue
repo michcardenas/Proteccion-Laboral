@@ -2,7 +2,9 @@
 import { ref, computed } from 'vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import AiDraftModal from '@/Components/AiDraftModal.vue';
 import PlanImportModal from '@/Components/PlanImportModal.vue';
@@ -45,23 +47,23 @@ const eventoTexto = (h) => {
 
 const eventoTheme = {
     created: {
-        circle: 'bg-emerald-100 text-emerald-700 ring-emerald-200/70',
+        circle: 'bg-success-100 text-success-700 ring-success-200/70',
         icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>',
     },
     updated: {
-        circle: 'bg-blue-100 text-blue-700 ring-blue-200/70',
+        circle: 'bg-info-100 text-info-700 ring-info-200/70',
         icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487z"/></svg>',
     },
     deleted: {
-        circle: 'bg-rose-100 text-rose-700 ring-rose-200/70',
+        circle: 'bg-danger-100 text-danger-700 ring-danger-200/70',
         icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>',
     },
     restored: {
-        circle: 'bg-indigo-100 text-indigo-700 ring-indigo-200/70',
+        circle: 'bg-accent-100 text-accent-700 ring-accent-200/70',
         icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>',
     },
     default: {
-        circle: 'bg-slate-100 text-slate-600 ring-slate-200/70',
+        circle: 'bg-brand-100 text-brand-600 ring-brand-200/70',
         icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
     },
 };
@@ -406,26 +408,23 @@ const isLate = (stage) => {
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center gap-2">
-                <Link :href="route('admin.processes.index')" class="text-slate-400 transition hover:text-slate-700">
+                <Link :href="route('admin.processes.index')" class="text-brand-400 transition hover:text-brand-700">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
                     </svg>
                 </Link>
-                <div class="min-w-0">
-                    <h1 class="truncate text-lg font-semibold text-slate-900 sm:text-xl">{{ process.codigo }}</h1>
-                    <p class="truncate text-xs text-slate-500">{{ process.titulo }}</p>
-                </div>
+                <PageHeader :titulo="process.codigo" :resumen="process.titulo" help-key="processShow" />
             </div>
         </template>
 
         <div class="space-y-5">
             <!-- Hero + Resumen IA del proceso -->
             <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+            <section class="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm lg:col-span-2">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
-                            <h2 class="text-xl font-semibold text-slate-900">{{ process.titulo }}</h2>
+                            <h2 class="text-xl font-semibold text-brand-900">{{ process.titulo }}</h2>
                             <StatusBadge :variant="estadoVariants[process.estado] || 'gray'" :label="labelEstado(process.estado)" />
                             <StatusBadge
                                 v-if="process.service"
@@ -433,7 +432,7 @@ const isLate = (stage) => {
                                 :label="labelModalidad(process.service.modalidad)"
                             />
                         </div>
-                        <p class="mt-1 text-sm text-slate-500">
+                        <p class="mt-1 text-sm text-brand-500">
                             <Link v-if="process.client" :href="route('admin.clients.show', process.client.id)" class="font-medium text-brand-900 hover:underline">
                                 {{ process.client.razon_social }}
                             </Link>
@@ -447,7 +446,7 @@ const isLate = (stage) => {
                         <button
                             v-if="can('ai.use')"
                             @click="showAiModal = true"
-                            class="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-accent-200 bg-accent-50 px-3 py-1.5 text-sm font-medium text-accent-700 transition hover:bg-accent-100"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
@@ -457,7 +456,7 @@ const isLate = (stage) => {
                         <button
                             v-if="can('ai.use') && can('processes.update')"
                             @click="showPlanModal = true"
-                            class="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700 transition hover:bg-teal-100"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-success-200 bg-success-50 px-3 py-1.5 text-sm font-medium text-success-700 transition hover:bg-success-100"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
@@ -467,7 +466,7 @@ const isLate = (stage) => {
                         <Link
                             v-if="can('tasks.view')"
                             :href="route('admin.processes.board', process.id)"
-                            class="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15M5.25 4.5h13.5A1.5 1.5 0 0120.25 6v12a1.5 1.5 0 01-1.5 1.5H5.25A1.5 1.5 0 013.75 18V6a1.5 1.5 0 011.5-1.5z"/>
@@ -477,14 +476,14 @@ const isLate = (stage) => {
                         <Link
                             v-if="can('processes.update')"
                             :href="route('admin.processes.edit', process.id)"
-                            class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            class="rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
                         >
                             Editar
                         </Link>
                         <button
                             v-if="can('processes.update')"
                             @click="showDelete = true"
-                            class="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                            class="rounded-md border border-danger-200 bg-danger-50 px-3 py-1.5 text-sm font-medium text-danger-700 hover:bg-danger-100"
                         >
                             Archivar
                         </button>
@@ -492,14 +491,14 @@ const isLate = (stage) => {
                 </div>
 
                 <!-- Progress bar -->
-                <div class="mt-6 border-t border-slate-100 pt-6">
+                <div class="mt-6 border-t border-brand-100 pt-6">
                     <div class="flex items-center justify-between text-xs">
-                        <span class="font-medium text-slate-600">Avance del checklist</span>
-                        <span class="font-semibold text-slate-900">{{ process.progress.completed }}/{{ process.progress.total }} · {{ process.progress.percent }}%</span>
+                        <span class="font-medium text-brand-600">Avance del checklist</span>
+                        <span class="font-semibold text-brand-900">{{ process.progress.completed }}/{{ process.progress.total }} · {{ process.progress.percent }}%</span>
                     </div>
-                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-brand-100">
                         <div
-                            class="h-full bg-gradient-to-r from-brand-900 to-indigo-600 transition-all"
+                            class="h-full bg-gradient-to-r from-brand-900 to-accent-600 transition-all"
                             :style="{ width: `${process.progress.percent}%` }"
                         />
                     </div>
@@ -508,42 +507,42 @@ const isLate = (stage) => {
                 <!-- Equipo -->
                 <dl class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                        <dt class="text-xs font-medium uppercase tracking-wider text-slate-500">Servicio</dt>
-                        <dd class="mt-1 text-sm text-slate-900">{{ process.service?.nombre || '—' }}</dd>
+                        <dt class="text-xs font-medium uppercase tracking-wider text-brand-500">Servicio</dt>
+                        <dd class="mt-1 text-sm text-brand-900">{{ process.service?.nombre || '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-xs font-medium uppercase tracking-wider text-slate-500">Líder</dt>
-                        <dd class="mt-1 flex items-center gap-2 text-sm text-slate-900">
+                        <dt class="text-xs font-medium uppercase tracking-wider text-brand-500">Líder</dt>
+                        <dd class="mt-1 flex items-center gap-2 text-sm text-brand-900">
                             <span v-if="process.lider" class="flex h-6 w-6 items-center justify-center rounded-full bg-brand-900 text-[10px] font-semibold text-white">{{ initialsFor(process.lider.name) }}</span>
                             {{ process.lider?.name || '—' }}
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-xs font-medium uppercase tracking-wider text-slate-500">Apoderado</dt>
-                        <dd class="mt-1 flex items-center gap-2 text-sm text-slate-900">
-                            <span v-if="process.apoderado" class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-[10px] font-semibold text-white">{{ initialsFor(process.apoderado.name) }}</span>
+                        <dt class="text-xs font-medium uppercase tracking-wider text-brand-500">Apoderado</dt>
+                        <dd class="mt-1 flex items-center gap-2 text-sm text-brand-900">
+                            <span v-if="process.apoderado" class="flex h-6 w-6 items-center justify-center rounded-full bg-warning-500 text-[10px] font-semibold text-white">{{ initialsFor(process.apoderado.name) }}</span>
                             {{ process.apoderado?.name || '—' }}
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-xs font-medium uppercase tracking-wider text-slate-500">Apertura</dt>
-                        <dd class="mt-1 text-sm text-slate-900">{{ formatDate(process.fecha_apertura) }}</dd>
+                        <dt class="text-xs font-medium uppercase tracking-wider text-brand-500">Apertura</dt>
+                        <dd class="mt-1 text-sm text-brand-900">{{ formatDate(process.fecha_apertura) }}</dd>
                     </div>
                 </dl>
             </section>
 
             <!-- Resumen ejecutivo del proceso (IA) -->
-            <aside class="flex flex-col overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 shadow-sm">
-                <div class="flex items-center justify-between gap-2 border-b border-indigo-100/70 px-5 py-4">
+            <aside class="flex flex-col overflow-hidden rounded-2xl border border-accent-100 bg-gradient-to-br from-accent-50 to-accent-100 shadow-sm">
+                <div class="flex items-center justify-between gap-2 border-b border-accent-100/70 px-5 py-4">
                     <div class="flex items-center gap-2">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-600 text-white shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                             </svg>
                         </span>
                         <div>
-                            <p class="text-sm font-semibold text-indigo-900">Resumen del proceso</p>
-                            <p class="text-[11px] text-indigo-700/70">Generado por IA</p>
+                            <p class="text-sm font-semibold text-accent-900">Resumen del proceso</p>
+                            <p class="text-[11px] text-accent-700/70">Generado por IA</p>
                         </div>
                     </div>
                     <button
@@ -551,7 +550,7 @@ const isLate = (stage) => {
                         type="button"
                         :disabled="generandoResumen"
                         @click="generarResumen"
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-accent-700 disabled:opacity-60"
                     >
                         <svg v-if="generandoResumen" class="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -565,35 +564,35 @@ const isLate = (stage) => {
                 </div>
 
                 <div class="flex-1 px-5 py-4">
-                    <p v-if="resumenError" class="mb-3 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700 ring-1 ring-inset ring-rose-200">
+                    <p v-if="resumenError" class="mb-3 rounded-md bg-danger-50 px-3 py-2 text-xs text-danger-700 ring-1 ring-inset ring-danger-200">
                         {{ resumenError }}
                     </p>
 
                     <div v-if="generandoResumen && !resumenIa" class="space-y-2">
-                        <div class="h-3 w-3/4 animate-pulse rounded bg-indigo-100"></div>
-                        <div class="h-3 w-full animate-pulse rounded bg-indigo-100"></div>
-                        <div class="h-3 w-5/6 animate-pulse rounded bg-indigo-100"></div>
+                        <div class="h-3 w-3/4 animate-pulse rounded bg-accent-100"></div>
+                        <div class="h-3 w-full animate-pulse rounded bg-accent-100"></div>
+                        <div class="h-3 w-5/6 animate-pulse rounded bg-accent-100"></div>
                     </div>
 
                     <p
                         v-else-if="resumenIa"
-                        class="whitespace-pre-line text-sm leading-relaxed text-indigo-950/90"
+                        class="whitespace-pre-line text-sm leading-relaxed text-accent-950/90"
                     >{{ resumenIa }}</p>
 
                     <div v-else class="py-6 text-center">
-                        <p class="text-sm text-indigo-700/70">Este proceso aún no tiene un resumen de IA.</p>
-                        <p v-if="can('ai.use')" class="mt-1 text-xs text-indigo-700/60">Usa “Generar” para crear uno a partir del expediente.</p>
+                        <p class="text-sm text-accent-700/70">Este proceso aún no tiene un resumen de IA.</p>
+                        <p v-if="can('ai.use')" class="mt-1 text-xs text-accent-700/60">Usa “Generar” para crear uno a partir del expediente.</p>
                     </div>
                 </div>
 
-                <p v-if="resumenIaAt" class="border-t border-indigo-100/70 px-5 py-2.5 text-[11px] text-indigo-700/60">
+                <p v-if="resumenIaAt" class="border-t border-accent-100/70 px-5 py-2.5 text-[11px] text-accent-700/60">
                     Actualizado {{ formatDateTime(resumenIaAt) }}
                 </p>
             </aside>
             </div>
 
             <!-- Tabs -->
-            <div class="border-b border-slate-200">
+            <div class="border-b border-brand-200">
                 <nav class="-mb-px flex gap-6 overflow-x-auto">
                     <button
                         v-for="tab in tabs"
@@ -603,13 +602,13 @@ const isLate = (stage) => {
                             'whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition',
                             activeTab === tab.key
                                 ? 'border-brand-900 text-brand-900'
-                                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
+                                : 'border-transparent text-brand-500 hover:border-brand-300 hover:text-brand-700',
                         ]"
                     >
                         {{ tab.label }}
                         <span
                             v-if="tab.key === 'tareas' && process.tasks.length"
-                            class="ml-1 rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-700"
+                            class="ml-1 rounded-full bg-brand-100 px-1.5 text-[10px] font-semibold text-brand-700"
                         >
                             {{ process.tasks.length }}
                         </span>
@@ -619,7 +618,7 @@ const isLate = (stage) => {
 
             <!-- TABLERO DE ETAPAS -->
             <section v-if="activeTab === 'tablero'" class="space-y-4">
-                <p v-if="!process.stages.length" class="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                <p v-if="!process.stages.length" class="rounded-xl border border-dashed border-brand-200 bg-white p-8 text-center text-sm text-brand-500">
                     Este proceso no tiene etapas. Verifica que el servicio tenga plantillas configuradas.
                 </p>
 
@@ -629,50 +628,50 @@ const isLate = (stage) => {
                         :key="stage.id"
                         class="rounded-2xl border bg-white p-5 shadow-sm transition"
                         :class="[
-                            stage.estado === 'completada' ? 'border-emerald-200 bg-emerald-50/40'
-                            : stage.estado === 'en_curso' ? 'border-indigo-200'
-                            : stage.estado === 'bloqueada' ? 'border-rose-200 bg-rose-50/40'
-                            : 'border-slate-200',
-                            isLate(stage) ? 'ring-1 ring-rose-200' : '',
+                            stage.estado === 'completada' ? 'border-success-200 bg-success-50/40'
+                            : stage.estado === 'en_curso' ? 'border-accent-200'
+                            : stage.estado === 'bloqueada' ? 'border-danger-200 bg-danger-50/40'
+                            : 'border-brand-200',
+                            isLate(stage) ? 'ring-1 ring-danger-200' : '',
                         ]"
                     >
                         <header class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Etapa {{ stage.orden }}</p>
-                                <h3 class="text-sm font-semibold text-slate-900">{{ stage.nombre }}</h3>
+                                <p class="text-[10px] font-semibold uppercase tracking-wider text-brand-500">Etapa {{ stage.orden }}</p>
+                                <h3 class="text-sm font-semibold text-brand-900">{{ stage.nombre }}</h3>
                             </div>
                             <StatusBadge :variant="stageEstadoVariants[stage.estado] || 'gray'" :label="labelEstado(stage.estado)" />
                         </header>
 
-                        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-brand-500">
                             <span v-if="stage.responsable">👤 {{ stage.responsable }}</span>
-                            <span v-if="stage.fecha_limite" :class="isLate(stage) ? 'font-medium text-rose-700' : ''">
+                            <span v-if="stage.fecha_limite" :class="isLate(stage) ? 'font-medium text-danger-700' : ''">
                                 ⏰ Límite {{ formatDate(stage.fecha_limite) }}
                             </span>
-                            <span v-if="stage.fecha_completada" class="text-emerald-700">
+                            <span v-if="stage.fecha_completada" class="text-success-700">
                                 ✓ Completada {{ formatDateTime(stage.fecha_completada) }}
                             </span>
                         </div>
 
                         <!-- Checklist -->
                         <div class="mt-4 space-y-1.5">
-                            <div v-if="!stage.checklist.length" class="text-xs italic text-slate-400">Sin checklist asociado.</div>
+                            <div v-if="!stage.checklist.length" class="text-xs italic text-brand-400">Sin checklist asociado.</div>
                             <label
                                 v-for="item in stage.checklist"
                                 :key="item.id"
-                                class="flex items-start gap-2 rounded-md p-1.5 text-sm transition hover:bg-slate-50"
-                                :class="item.completado ? 'text-slate-400' : 'text-slate-700'"
+                                class="flex items-start gap-2 rounded-md p-1.5 text-sm transition hover:bg-brand-50"
+                                :class="item.completado ? 'text-brand-400' : 'text-brand-700'"
                             >
                                 <input
                                     type="checkbox"
                                     :checked="item.completado"
                                     :disabled="!can('stages.update') || stage.estado === 'completada'"
                                     @change="toggleChecklist(stage, item)"
-                                    class="mt-0.5 rounded border-slate-300 text-brand-900 shadow-sm focus:ring-brand-900"
+                                    class="mt-0.5 rounded border-brand-300 text-brand-900 shadow-sm focus:ring-brand-900"
                                 />
                                 <span :class="item.completado ? 'line-through' : ''">
                                     {{ item.descripcion }}
-                                    <span v-if="!item.es_obligatorio" class="ml-1 text-[10px] uppercase tracking-wider text-slate-400">opcional</span>
+                                    <span v-if="!item.es_obligatorio" class="ml-1 text-[10px] uppercase tracking-wider text-brand-400">opcional</span>
                                 </span>
                             </label>
                         </div>
@@ -680,29 +679,29 @@ const isLate = (stage) => {
                         <!-- Stage progress -->
                         <div v-if="stage.checklist.length" class="mt-4">
                             <div class="flex items-center justify-between text-[11px]">
-                                <span class="text-slate-500">{{ stage.checklist.filter(i => i.completado).length }}/{{ stage.checklist.length }} ítems</span>
-                                <span class="font-semibold text-slate-700">{{ stageProgress(stage) }}%</span>
+                                <span class="text-brand-500">{{ stage.checklist.filter(i => i.completado).length }}/{{ stage.checklist.length }} ítems</span>
+                                <span class="font-semibold text-brand-700">{{ stageProgress(stage) }}%</span>
                             </div>
-                            <div class="mt-1 h-1 overflow-hidden rounded-full bg-slate-100">
+                            <div class="mt-1 h-1 overflow-hidden rounded-full bg-brand-100">
                                 <div class="h-full bg-brand-900 transition-all" :style="{ width: `${stageProgress(stage)}%` }" />
                             </div>
                         </div>
 
                         <!-- Actions -->
-                        <div class="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                        <div class="mt-4 flex flex-wrap gap-2 border-t border-brand-100 pt-3">
                             <button
                                 v-if="can('stages.complete') && stage.estado !== 'completada'"
                                 @click="completeStage(stage)"
                                 :disabled="!allRequiredDone(stage)"
                                 :title="!allRequiredDone(stage) ? 'Completa todos los ítems obligatorios primero' : ''"
-                                class="rounded-md bg-brand-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                class="rounded-md bg-brand-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-brand-300"
                             >
                                 ✓ Completar etapa
                             </button>
                             <button
                                 v-if="can('stages.update') && stage.estado === 'completada'"
                                 @click="reopenStage(stage)"
-                                class="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                class="rounded-md border border-brand-200 bg-white px-3 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
                             >
                                 ↺ Reabrir
                             </button>
@@ -713,25 +712,25 @@ const isLate = (stage) => {
 
             <!-- DETALLE -->
             <section v-else-if="activeTab === 'detalle'" class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Descripción del proceso</h3>
-                    <p class="mt-3 whitespace-pre-line text-sm text-slate-700">
+                <div class="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm lg:col-span-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Descripción del proceso</h3>
+                    <p class="mt-3 whitespace-pre-line text-sm text-brand-700">
                         {{ process.descripcion || 'Sin descripción registrada.' }}
                     </p>
-                    <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-slate-500">Servicio</h3>
-                    <p class="mt-3 text-sm text-slate-700">{{ process.service?.descripcion || 'Sin descripción del servicio.' }}</p>
+                    <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-brand-500">Servicio</h3>
+                    <p class="mt-3 text-sm text-brand-700">{{ process.service?.descripcion || 'Sin descripción del servicio.' }}</p>
                 </div>
 
                 <div class="space-y-4">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Cliente</p>
-                        <p class="mt-1 text-sm font-medium text-slate-900">{{ process.client?.razon_social || '—' }}</p>
-                        <p v-if="process.client?.nit" class="text-xs text-slate-500">NIT {{ process.client.nit }}</p>
+                    <div class="rounded-2xl border border-brand-200 bg-white p-5 shadow-sm">
+                        <p class="text-xs font-medium uppercase tracking-wider text-brand-500">Cliente</p>
+                        <p class="mt-1 text-sm font-medium text-brand-900">{{ process.client?.razon_social || '—' }}</p>
+                        <p v-if="process.client?.nit" class="text-xs text-brand-500">NIT {{ process.client.nit }}</p>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Coordinador</p>
-                        <p class="mt-1 text-sm text-slate-900">{{ process.coordinador?.name || '—' }}</p>
-                        <p class="text-xs text-slate-500">{{ process.coordinador?.email }}</p>
+                    <div class="rounded-2xl border border-brand-200 bg-white p-5 shadow-sm">
+                        <p class="text-xs font-medium uppercase tracking-wider text-brand-500">Coordinador</p>
+                        <p class="mt-1 text-sm text-brand-900">{{ process.coordinador?.name || '—' }}</p>
+                        <p class="text-xs text-brand-500">{{ process.coordinador?.email }}</p>
                     </div>
                 </div>
             </section>
@@ -742,25 +741,25 @@ const isLate = (stage) => {
                 <Link
                     v-if="can('tasks.view')"
                     :href="route('admin.processes.board', process.id)"
-                    class="flex items-center justify-between gap-4 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-4 shadow-sm transition hover:border-indigo-300 hover:shadow"
+                    class="flex items-center justify-between gap-4 rounded-xl border border-accent-200 bg-gradient-to-r from-accent-50 to-accent-50 px-5 py-4 shadow-sm transition hover:border-accent-300 hover:shadow"
                 >
                     <div class="flex items-center gap-3">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-600 text-white shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15M5.25 4.5h13.5A1.5 1.5 0 0120.25 6v12a1.5 1.5 0 01-1.5 1.5H5.25A1.5 1.5 0 013.75 18V6a1.5 1.5 0 011.5-1.5z"/>
                             </svg>
                         </span>
                         <div>
-                            <p class="text-sm font-semibold text-indigo-900">Tablero Kanban de {{ process.codigo }}</p>
-                            <p class="text-xs text-indigo-700/80">Se abre con este proceso seleccionado · puedes cambiar a "Todos" o a otro proceso desde el selector.</p>
+                            <p class="text-sm font-semibold text-accent-900">Tablero Kanban de {{ process.codigo }}</p>
+                            <p class="text-xs text-accent-700/80">Se abre con este proceso seleccionado · puedes cambiar a "Todos" o a otro proceso desde el selector.</p>
                         </div>
                     </div>
-                    <span class="shrink-0 text-indigo-600">→</span>
+                    <span class="shrink-0 text-accent-600">→</span>
                 </Link>
 
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <ul class="divide-y divide-slate-100">
-                    <li v-if="!process.tasks.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                <div class="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+                <ul class="divide-y divide-brand-100">
+                    <li v-if="!process.tasks.length" class="px-6 py-8 text-center text-sm text-brand-500">
                         Aún no hay tareas creadas para este proceso.
                     </li>
                     <li
@@ -770,11 +769,11 @@ const isLate = (stage) => {
                     >
                         <div class="min-w-0">
                             <div class="flex items-center gap-2">
-                                <p class="text-sm font-medium text-slate-900">{{ t.titulo }}</p>
+                                <p class="text-sm font-medium text-brand-900">{{ t.titulo }}</p>
                                 <StatusBadge :variant="taskEstadoVariants[t.estado] || 'gray'" :label="labelEstado(t.estado)" />
                                 <StatusBadge :variant="taskPriorityVariants[t.prioridad] || 'gray'" :label="labelPrioridad(t.prioridad)" />
                             </div>
-                            <p class="text-xs text-slate-500">
+                            <p class="text-xs text-brand-500">
                                 <span v-if="t.asignado">Asignada a {{ t.asignado }}</span>
                                 <span v-if="t.fecha_limite"> · Vence {{ formatDate(t.fecha_limite) }}</span>
                             </p>
@@ -787,7 +786,7 @@ const isLate = (stage) => {
             <!-- VISITAS -->
             <section v-else-if="activeTab === 'visitas'" class="space-y-4">
                 <div class="flex items-center justify-between gap-3">
-                    <p class="text-sm text-slate-500">Registra las visitas y reuniones con el cliente. Las marcadas como visibles aparecen en su portal.</p>
+                    <p class="text-sm text-brand-500">Registra las visitas y reuniones con el cliente. Las marcadas como visibles aparecen en su portal.</p>
                     <button
                         v-if="can('visits.manage') || can('processes.update')"
                         type="button"
@@ -802,57 +801,57 @@ const isLate = (stage) => {
                 <!-- Formulario de nueva visita -->
                 <form
                     v-if="showVisitForm"
-                    class="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    class="space-y-4 rounded-2xl border border-brand-200 bg-white p-5 shadow-sm"
                     @submit.prevent="submitVisit"
                 >
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Tipo</label>
-                            <select v-model="visitForm.tipo" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <label class="block text-xs font-medium text-brand-600">Tipo</label>
+                            <select v-model="visitForm.tipo" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500">
                                 <option v-for="t in visitTipos" :key="t" :value="t">{{ tipoVisitaLabels[t] || t }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Fecha *</label>
-                            <input v-model="visitForm.fecha" type="date" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
-                            <p v-if="visitForm.errors.fecha" class="mt-1 text-xs text-rose-600">{{ visitForm.errors.fecha }}</p>
+                            <label class="block text-xs font-medium text-brand-600">Fecha *</label>
+                            <input v-model="visitForm.fecha" type="date" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500" />
+                            <p v-if="visitForm.errors.fecha" class="mt-1 text-xs text-danger-600">{{ visitForm.errors.fecha }}</p>
                         </div>
                         <div class="flex items-end">
-                            <label class="flex items-center gap-2 text-sm text-slate-600">
-                                <input v-model="visitForm.visible_cliente" type="checkbox" class="rounded border-slate-300 text-brand-900 focus:ring-brand-900" />
+                            <label class="flex items-center gap-2 text-sm text-brand-600">
+                                <input v-model="visitForm.visible_cliente" type="checkbox" class="rounded border-brand-300 text-brand-900 focus:ring-brand-900" />
                                 Visible para el cliente
                             </label>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-600">Título *</label>
-                        <input v-model="visitForm.titulo" type="text" maxlength="200" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ej: Visita de seguimiento en sede del cliente" />
-                        <p v-if="visitForm.errors.titulo" class="mt-1 text-xs text-rose-600">{{ visitForm.errors.titulo }}</p>
+                        <label class="block text-xs font-medium text-brand-600">Título *</label>
+                        <input v-model="visitForm.titulo" type="text" maxlength="200" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500" placeholder="Ej: Visita de seguimiento en sede del cliente" />
+                        <p v-if="visitForm.errors.titulo" class="mt-1 text-xs text-danger-600">{{ visitForm.errors.titulo }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-600">Descripción</label>
-                        <textarea v-model="visitForm.descripcion" rows="3" maxlength="5000" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Qué se trató en la visita…"></textarea>
+                        <label class="block text-xs font-medium text-brand-600">Descripción</label>
+                        <textarea v-model="visitForm.descripcion" rows="3" maxlength="5000" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500" placeholder="Qué se trató en la visita…"></textarea>
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Asistentes</label>
-                            <select v-model="visitForm.asistentes" multiple class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" size="4">
+                            <label class="block text-xs font-medium text-brand-600">Asistentes</label>
+                            <select v-model="visitForm.asistentes" multiple class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500" size="4">
                                 <option v-for="u in staff" :key="u.id" :value="u.id">{{ u.name }}</option>
                             </select>
-                            <p class="mt-1 text-[11px] text-slate-400">Ctrl/Cmd + clic para varios. Si no eliges, se registra a tu nombre.</p>
+                            <p class="mt-1 text-[11px] text-brand-400">Ctrl/Cmd + clic para varios. Si no eliges, se registra a tu nombre.</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Acta / soporte (opcional)</label>
-                            <input type="file" class="mt-1 w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200" @change="onActaChange" />
-                            <p v-if="visitForm.errors.acta" class="mt-1 text-xs text-rose-600">{{ visitForm.errors.acta }}</p>
+                            <label class="block text-xs font-medium text-brand-600">Acta / soporte (opcional)</label>
+                            <input type="file" class="mt-1 w-full text-sm text-brand-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-200" @change="onActaChange" />
+                            <p v-if="visitForm.errors.acta" class="mt-1 text-xs text-danger-600">{{ visitForm.errors.acta }}</p>
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
-                        <button type="button" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="showVisitForm = false">Cancelar</button>
+                    <div class="flex justify-end gap-2 border-t border-brand-100 pt-4">
+                        <button type="button" class="rounded-lg border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50" @click="showVisitForm = false">Cancelar</button>
                         <button type="submit" :disabled="visitForm.processing" class="rounded-lg bg-brand-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 disabled:opacity-60">
                             {{ visitForm.processing ? 'Guardando…' : 'Guardar visita' }}
                         </button>
@@ -860,29 +859,29 @@ const isLate = (stage) => {
                 </form>
 
                 <!-- Lista de visitas -->
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <ul class="divide-y divide-slate-100">
-                        <li v-if="!process.visits || !process.visits.length" class="px-6 py-8 text-center text-sm text-slate-500">
+                <div class="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+                    <ul class="divide-y divide-brand-100">
+                        <li v-if="!process.visits || !process.visits.length" class="px-6 py-8 text-center text-sm text-brand-500">
                             Aún no hay visitas registradas.
                         </li>
                         <li v-for="v in process.visits" :key="v.id" class="px-6 py-4">
                             <div class="flex flex-wrap items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <p class="text-sm font-semibold text-slate-900">{{ v.titulo }}</p>
+                                        <p class="text-sm font-semibold text-brand-900">{{ v.titulo }}</p>
                                         <StatusBadge variant="indigo" :label="tipoVisitaLabels[v.tipo] || v.tipo" />
                                         <StatusBadge v-if="v.visible_cliente" variant="green" label="visible cliente" />
                                         <StatusBadge v-else variant="gray" label="interna" />
                                     </div>
-                                    <p class="mt-0.5 text-xs text-slate-500">
+                                    <p class="mt-0.5 text-xs text-brand-500">
                                         {{ formatDate(v.fecha) }}<span v-if="v.registrada_por"> · {{ v.registrada_por }}</span>
                                     </p>
-                                    <p v-if="v.descripcion" class="mt-2 whitespace-pre-line text-sm text-slate-700">{{ v.descripcion }}</p>
+                                    <p v-if="v.descripcion" class="mt-2 whitespace-pre-line text-sm text-brand-700">{{ v.descripcion }}</p>
                                     <div v-if="v.asistentes && v.asistentes.length" class="mt-2 flex flex-wrap gap-1">
-                                        <span v-for="a in v.asistentes" :key="a.id" class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 ring-1 ring-inset ring-slate-200">{{ a.name }}</span>
+                                        <span v-for="a in v.asistentes" :key="a.id" class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] text-brand-500 ring-1 ring-inset ring-brand-200">{{ a.name }}</span>
                                     </div>
                                     <div v-if="v.documentos && v.documentos.length" class="mt-3 flex flex-wrap gap-2">
-                                        <a v-for="d in v.documentos" :key="d.id" :href="d.url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:text-indigo-700 hover:ring-indigo-300">
+                                        <a v-for="d in v.documentos" :key="d.id" :href="d.url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 transition hover:text-accent-700 hover:ring-accent-300">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
                                             {{ d.nombre }}
                                         </a>
@@ -891,7 +890,7 @@ const isLate = (stage) => {
                                 <button
                                     v-if="can('visits.manage') || can('processes.update')"
                                     type="button"
-                                    class="shrink-0 text-slate-400 transition hover:text-rose-600"
+                                    class="shrink-0 text-brand-400 transition hover:text-danger-600"
                                     title="Eliminar visita"
                                     @click="showDeleteVisit = v.id"
                                 >
@@ -907,15 +906,15 @@ const isLate = (stage) => {
             <section v-else-if="activeTab === 'pagos'" class="space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <p class="text-sm text-slate-500">Registra los pagos que el cliente realiza. Quedan como constancia y el cliente los ve en su portal.</p>
-                        <p class="mt-1 text-lg font-semibold text-slate-800">
-                            Total registrado: <span class="text-emerald-700">{{ fmtMoneda(process.pagos_total) }}</span>
+                        <p class="text-sm text-brand-500">Registra los pagos que el cliente realiza. Quedan como constancia y el cliente los ve en su portal.</p>
+                        <p class="mt-1 text-lg font-semibold text-brand-800">
+                            Total registrado: <span class="text-success-700">{{ fmtMoneda(process.pagos_total) }}</span>
                         </p>
                     </div>
                     <button
                         v-if="can('payments.manage')"
                         type="button"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-success-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-success-700"
                         @click="openPagoForm()"
                     >
                         + Registrar pago
@@ -925,54 +924,54 @@ const isLate = (stage) => {
                 <!-- Formulario de pago -->
                 <form
                     v-if="showPagoForm"
-                    class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-sm"
+                    class="rounded-xl border border-success-200 bg-success-50/40 p-4 shadow-sm"
                     @submit.prevent="submitPago"
                 >
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Monto (COP)</label>
-                            <input v-model="pagoForm.monto" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="0" />
-                            <p v-if="pagoForm.errors.monto" class="mt-1 text-xs text-rose-600">{{ pagoForm.errors.monto }}</p>
+                            <label class="block text-xs font-medium text-brand-600">Monto (COP)</label>
+                            <input v-model="pagoForm.monto" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-success-500 focus:ring-success-500" placeholder="0" />
+                            <p v-if="pagoForm.errors.monto" class="mt-1 text-xs text-danger-600">{{ pagoForm.errors.monto }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Fecha del pago</label>
-                            <input v-model="pagoForm.fecha_pago" type="date" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" />
-                            <p v-if="pagoForm.errors.fecha_pago" class="mt-1 text-xs text-rose-600">{{ pagoForm.errors.fecha_pago }}</p>
+                            <label class="block text-xs font-medium text-brand-600">Fecha del pago</label>
+                            <input v-model="pagoForm.fecha_pago" type="date" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-success-500 focus:ring-success-500" />
+                            <p v-if="pagoForm.errors.fecha_pago" class="mt-1 text-xs text-danger-600">{{ pagoForm.errors.fecha_pago }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Método</label>
-                            <select v-model="pagoForm.metodo" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                            <label class="block text-xs font-medium text-brand-600">Método</label>
+                            <select v-model="pagoForm.metodo" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-success-500 focus:ring-success-500">
                                 <option v-for="m in paymentMetodos" :key="m" :value="m">{{ metodoLabels[m] || m }}</option>
                             </select>
                         </div>
                     </div>
                     <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Concepto</label>
-                            <input v-model="pagoForm.concepto" type="text" maxlength="200" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="Ej: Abono honorarios, cuota 1 de 3…" />
-                            <p v-if="pagoForm.errors.concepto" class="mt-1 text-xs text-rose-600">{{ pagoForm.errors.concepto }}</p>
+                            <label class="block text-xs font-medium text-brand-600">Concepto</label>
+                            <input v-model="pagoForm.concepto" type="text" maxlength="200" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-success-500 focus:ring-success-500" placeholder="Ej: Abono honorarios, cuota 1 de 3…" />
+                            <p v-if="pagoForm.errors.concepto" class="mt-1 text-xs text-danger-600">{{ pagoForm.errors.concepto }}</p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-600">Referencia (opcional)</label>
-                            <input v-model="pagoForm.referencia" type="text" maxlength="120" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="N° de transacción/consignación" />
+                            <label class="block text-xs font-medium text-brand-600">Referencia (opcional)</label>
+                            <input v-model="pagoForm.referencia" type="text" maxlength="120" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-success-500 focus:ring-success-500" placeholder="N° de transacción/consignación" />
                         </div>
                     </div>
                     <div class="mt-4">
-                        <label class="block text-xs font-medium text-slate-600">Notas (opcional)</label>
-                        <textarea v-model="pagoForm.notas" rows="2" maxlength="2000" class="mt-1 w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500" placeholder="Detalle adicional…"></textarea>
+                        <label class="block text-xs font-medium text-brand-600">Notas (opcional)</label>
+                        <textarea v-model="pagoForm.notas" rows="2" maxlength="2000" class="mt-1 w-full rounded-lg border-brand-300 text-sm shadow-sm focus:border-success-500 focus:ring-success-500" placeholder="Detalle adicional…"></textarea>
                     </div>
                     <div class="mt-4 flex items-center gap-2">
-                        <button type="submit" :disabled="pagoForm.processing" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50">
+                        <button type="submit" :disabled="pagoForm.processing" class="rounded-lg bg-success-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-success-700 disabled:opacity-50">
                             {{ pagoEditId ? 'Guardar cambios' : 'Registrar pago' }}
                         </button>
-                        <button type="button" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800" @click="showPagoForm = false">Cancelar</button>
+                        <button type="button" class="rounded-lg px-4 py-2 text-sm font-medium text-brand-600 hover:text-brand-800" @click="showPagoForm = false">Cancelar</button>
                     </div>
                 </form>
 
                 <!-- Lista de pagos -->
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <table class="min-w-full divide-y divide-slate-100 text-sm">
-                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div class="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+                    <table class="min-w-full divide-y divide-brand-100 text-sm">
+                        <thead class="bg-brand-50 text-left text-xs font-semibold uppercase tracking-wide text-brand-500">
                             <tr>
                                 <th class="px-4 py-3">Fecha</th>
                                 <th class="px-4 py-3">Concepto</th>
@@ -982,35 +981,35 @@ const isLate = (stage) => {
                                 <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-brand-100">
                             <tr v-if="!process.pagos || !process.pagos.length">
-                                <td colspan="6" class="px-4 py-8 text-center text-slate-500">Aún no hay pagos registrados.</td>
+                                <td colspan="6" class="px-4 py-8 text-center text-brand-500">Aún no hay pagos registrados.</td>
                             </tr>
-                            <tr v-for="p in process.pagos" :key="p.id" class="hover:bg-slate-50/60">
-                                <td class="whitespace-nowrap px-4 py-3 text-slate-700">{{ p.fecha_pago }}</td>
+                            <tr v-for="p in process.pagos" :key="p.id" class="hover:bg-brand-50/60">
+                                <td class="whitespace-nowrap px-4 py-3 text-brand-700">{{ p.fecha_pago }}</td>
                                 <td class="px-4 py-3">
-                                    <div class="font-medium text-slate-800">{{ p.concepto }}</div>
-                                    <div v-if="p.referencia" class="text-xs text-slate-400">Ref: {{ p.referencia }}</div>
-                                    <div v-if="p.notas" class="text-xs text-slate-400">{{ p.notas }}</div>
+                                    <div class="font-medium text-brand-800">{{ p.concepto }}</div>
+                                    <div v-if="p.referencia" class="text-xs text-brand-400">Ref: {{ p.referencia }}</div>
+                                    <div v-if="p.notas" class="text-xs text-brand-400">{{ p.notas }}</div>
                                     <!-- Soportes/facturas del pago -->
                                     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                                         <span
                                             v-for="d in (p.documentos || [])"
                                             :key="d.id"
-                                            class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                                            class="inline-flex items-center gap-1 rounded bg-brand-100 px-2 py-0.5 text-xs text-brand-600"
                                         >
-                                            <a :href="route('admin.documents.download', d.id)" target="_blank" class="hover:text-slate-900">📎 {{ d.nombre }}</a>
+                                            <a :href="route('admin.documents.download', d.id)" target="_blank" class="hover:text-brand-900">📎 {{ d.nombre }}</a>
                                             <button
                                                 v-if="can('payments.manage')"
                                                 type="button"
-                                                class="text-rose-400 hover:text-rose-700"
+                                                class="text-danger-400 hover:text-danger-700"
                                                 title="Quitar soporte"
                                                 @click="eliminarSoportePago(p.id, d.id)"
                                             >✕</button>
                                         </span>
                                         <label
                                             v-if="can('payments.manage')"
-                                            class="inline-flex cursor-pointer items-center gap-1 rounded border border-dashed border-slate-300 px-2 py-0.5 text-xs text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                                            class="inline-flex cursor-pointer items-center gap-1 rounded border border-dashed border-brand-300 px-2 py-0.5 text-xs text-brand-500 hover:border-brand-400 hover:text-brand-700"
                                         >
                                             + Soporte
                                             <input
@@ -1022,13 +1021,13 @@ const isLate = (stage) => {
                                         </label>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-slate-600">{{ metodoLabels[p.metodo] || p.metodo }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-emerald-700">{{ fmtMoneda(p.monto) }}</td>
-                                <td class="px-4 py-3 text-slate-500">{{ p.registrado_por || '—' }}</td>
+                                <td class="px-4 py-3 text-brand-600">{{ metodoLabels[p.metodo] || p.metodo }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-success-700">{{ fmtMoneda(p.monto) }}</td>
+                                <td class="px-4 py-3 text-brand-500">{{ p.registrado_por || '—' }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right">
                                     <template v-if="can('payments.manage')">
-                                        <button type="button" class="text-xs font-medium text-slate-500 hover:text-slate-800" @click="openPagoForm(p)">Editar</button>
-                                        <button type="button" class="ml-3 text-xs font-medium text-rose-500 hover:text-rose-700" @click="showDeletePago = p.id">Eliminar</button>
+                                        <button type="button" class="text-xs font-medium text-brand-500 hover:text-brand-800" @click="openPagoForm(p)">Editar</button>
+                                        <button type="button" class="ml-3 text-xs font-medium text-danger-500 hover:text-danger-700" @click="showDeletePago = p.id">Eliminar</button>
                                     </template>
                                 </td>
                             </tr>
@@ -1038,9 +1037,9 @@ const isLate = (stage) => {
             </section>
 
             <!-- DOCUMENTOS -->
-            <section v-else-if="activeTab === 'documentos'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <ul class="divide-y divide-slate-100">
-                    <li v-if="!process.documents || !process.documents.length" class="px-6 py-8 text-center text-sm text-slate-500">
+            <section v-else-if="activeTab === 'documentos'" class="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+                <ul class="divide-y divide-brand-100">
+                    <li v-if="!process.documents || !process.documents.length" class="px-6 py-8 text-center text-sm text-brand-500">
                         Aún no hay documentos. Usa “Generar borrador IA” para crear uno.
                     </li>
                     <li
@@ -1050,12 +1049,12 @@ const isLate = (stage) => {
                     >
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <p class="text-sm font-medium text-slate-900">{{ d.nombre }}</p>
+                                <p class="text-sm font-medium text-brand-900">{{ d.nombre }}</p>
                                 <StatusBadge variant="gray" :label="d.tipo" />
                                 <StatusBadge v-if="d.generado_por_ia" variant="indigo" label="IA" />
                                 <StatusBadge v-if="d.visible_cliente" variant="green" label="visible cliente" />
                             </div>
-                            <p class="text-xs text-slate-500">
+                            <p class="text-xs text-brand-500">
                                 <span v-if="d.subido_por">Por {{ d.subido_por }}</span>
                                 <span v-if="d.created_at"> · {{ formatDateTime(d.created_at) }}</span>
                             </p>
@@ -1065,7 +1064,7 @@ const isLate = (stage) => {
                             :href="d.url"
                             target="_blank"
                             rel="noopener"
-                            class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-accent-300 hover:text-accent-700"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
@@ -1077,9 +1076,9 @@ const isLate = (stage) => {
             </section>
 
             <!-- COMENTARIOS -->
-            <section v-else-if="activeTab === 'comentarios'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <ul class="divide-y divide-slate-100">
-                    <li v-if="!process.comments || !process.comments.length" class="px-6 py-8 text-center text-sm text-slate-500">
+            <section v-else-if="activeTab === 'comentarios'" class="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+                <ul class="divide-y divide-brand-100">
+                    <li v-if="!process.comments || !process.comments.length" class="px-6 py-8 text-center text-sm text-brand-500">
                         Aún no hay comentarios en este proceso.
                     </li>
                     <li
@@ -1088,35 +1087,39 @@ const isLate = (stage) => {
                         class="px-6 py-4"
                     >
                         <div class="flex flex-wrap items-center gap-2">
-                            <p class="text-sm font-medium text-slate-900">{{ c.user || '—' }}</p>
+                            <p class="text-sm font-medium text-brand-900">{{ c.user || '—' }}</p>
                             <StatusBadge v-if="c.visible_cliente" variant="green" label="visible cliente" />
-                            <span v-if="c.created_at" class="text-xs text-slate-500">{{ formatDateTime(c.created_at) }}</span>
+                            <span v-if="c.created_at" class="text-xs text-brand-500">{{ formatDateTime(c.created_at) }}</span>
                         </div>
-                        <p class="mt-1 whitespace-pre-line text-sm text-slate-700">{{ c.body }}</p>
+                        <p class="mt-1 whitespace-pre-line text-sm text-brand-700">{{ c.body }}</p>
                     </li>
                 </ul>
             </section>
 
             <!-- CORREOS -->
-            <section v-else-if="activeTab === 'correos'" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <ul class="divide-y divide-slate-100">
-                    <li v-if="!process.correos || !process.correos.length" class="px-6 py-8 text-center text-sm text-slate-500">
-                        No hay correos asociados a este proceso todavía.
+            <section v-else-if="activeTab === 'correos'" class="overflow-hidden rounded-xl border border-brand-200 bg-white shadow-sm">
+                <ul class="divide-y divide-brand-100">
+                    <li v-if="!process.correos || !process.correos.length" class="px-6 py-6">
+                        <EmptyState
+                            variante="auto"
+                            titulo="Todavía no hay correos en este proceso"
+                            descripcion="Se enlazan solos: la plataforma revisa el buzón del despacho cada pocos minutos y la IA archiva aquí los correos que reconoce como de este caso. Si esperabas uno, búscalo en Revisión de correos."
+                        />
                     </li>
                     <li v-for="m in process.correos" :key="m.id" class="px-6 py-4">
                         <div class="flex flex-wrap items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <p class="truncate text-sm font-medium text-slate-900">{{ m.subject || '(sin asunto)' }}</p>
-                                    <span class="text-xs text-slate-500">{{ formatDateTime(m.received_at) }}</span>
+                                    <p class="truncate text-sm font-medium text-brand-900">{{ m.subject || '(sin asunto)' }}</p>
+                                    <span class="text-xs text-brand-500">{{ formatDateTime(m.received_at) }}</span>
                                 </div>
-                                <p class="mt-0.5 text-xs text-slate-500">De: {{ m.from }}</p>
-                                <p class="mt-1 whitespace-pre-line text-sm text-slate-600">{{ m.body_preview }}</p>
+                                <p class="mt-0.5 text-xs text-brand-500">De: {{ m.from }}</p>
+                                <p class="mt-1 whitespace-pre-line text-sm text-brand-600">{{ m.body_preview }}</p>
                             </div>
                             <button
                                 v-if="m.puede_responder && can('processes.update')"
                                 @click="openReply(m)"
-                                class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+                                class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-accent-200 bg-accent-50 px-3 py-1.5 text-sm font-medium text-accent-700 transition hover:bg-accent-100"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
@@ -1140,12 +1143,12 @@ const isLate = (stage) => {
                         class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition"
                         :class="historialFiltro === f.key
                             ? 'bg-brand-900 text-white ring-brand-900'
-                            : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900'"
+                            : 'bg-white text-brand-600 ring-brand-200 hover:bg-brand-50 hover:text-brand-900'"
                     >
                         {{ f.label }}
                         <span
                             class="rounded-full px-1.5 text-[10px] tabular-nums"
-                            :class="historialFiltro === f.key ? 'bg-white/20' : 'bg-slate-100 text-slate-500'"
+                            :class="historialFiltro === f.key ? 'bg-white/20' : 'bg-brand-100 text-brand-500'"
                         >
                             {{ f.count }}
                         </span>
@@ -1154,7 +1157,7 @@ const isLate = (stage) => {
 
                 <p
                     v-if="!historialVisible.length"
-                    class="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500"
+                    class="rounded-xl border border-dashed border-brand-200 bg-white p-8 text-center text-sm text-brand-500"
                 >
                     Aún no hay cambios registrados en este proceso.
                 </p>
@@ -1162,11 +1165,11 @@ const isLate = (stage) => {
                 <!-- Grupos por día -->
                 <div v-for="grupo in historialPorDia" :key="grupo.key">
                     <div class="mb-3 flex items-center gap-3">
-                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 first-letter:capitalize">{{ grupo.label }}</h3>
-                        <div class="h-px flex-1 bg-slate-200/80"></div>
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-brand-400 first-letter:capitalize">{{ grupo.label }}</h3>
+                        <div class="h-px flex-1 bg-brand-200/80"></div>
                     </div>
 
-                    <ol class="relative ml-4 space-y-3 border-l-2 border-slate-100 pl-7">
+                    <ol class="relative ml-4 space-y-3 border-l-2 border-brand-100 pl-7">
                         <li v-for="h in grupo.items" :key="h.id" class="relative">
                             <!-- Icono del evento sobre la línea de tiempo -->
                             <span
@@ -1175,31 +1178,31 @@ const isLate = (stage) => {
                                 v-html="temaDe(h).icon"
                             />
 
-                            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow">
+                            <div class="rounded-xl border border-brand-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span
                                         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white"
-                                        :class="h.causer ? 'bg-brand-900 text-white' : 'bg-slate-200 text-slate-500'"
+                                        :class="h.causer ? 'bg-brand-900 text-white' : 'bg-brand-200 text-brand-500'"
                                         :title="h.causer || 'Sistema'"
                                     >
                                         {{ h.causer ? initialsFor(h.causer) : '⚙' }}
                                     </span>
-                                    <p class="text-sm text-slate-600">
-                                        <span class="font-semibold text-slate-900">{{ h.causer || 'Sistema' }}</span>
+                                    <p class="text-sm text-brand-600">
+                                        <span class="font-semibold text-brand-900">{{ h.causer || 'Sistema' }}</span>
                                         {{ eventoTexto(h) }}
                                     </p>
                                     <span
                                         v-if="h.tipo === 'tarea'"
-                                        class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-100"
+                                        class="inline-flex items-center gap-1 rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-medium text-accent-700 ring-1 ring-inset ring-accent-100"
                                     >
                                         🗂 Kanban
                                     </span>
-                                    <span class="ml-auto shrink-0 text-xs tabular-nums text-slate-400" :title="formatDateTime(h.created_at)">
+                                    <span class="ml-auto shrink-0 text-xs tabular-nums text-brand-400" :title="formatDateTime(h.created_at)">
                                         {{ formatTime(h.created_at) }}
                                     </span>
                                 </div>
 
-                                <p v-if="h.objeto" class="mt-2 text-sm font-medium text-slate-800">
+                                <p v-if="h.objeto" class="mt-2 text-sm font-medium text-brand-800">
                                     “{{ h.objeto }}”
                                 </p>
 
@@ -1211,16 +1214,16 @@ const isLate = (stage) => {
                                     <span
                                         v-for="(c, i) in h.cambios"
                                         :key="i"
-                                        class="inline-flex max-w-full flex-wrap items-center gap-x-1.5 rounded-lg bg-slate-50 px-2 py-1 text-xs ring-1 ring-inset ring-slate-200"
+                                        class="inline-flex max-w-full flex-wrap items-center gap-x-1.5 rounded-lg bg-brand-50 px-2 py-1 text-xs ring-1 ring-inset ring-brand-200"
                                     >
-                                        <span class="font-medium text-slate-500">{{ c.campo }}</span>
+                                        <span class="font-medium text-brand-500">{{ c.campo }}</span>
                                         <template v-if="h.evento === 'updated' && c.antes">
-                                            <span class="text-slate-400 line-through">{{ c.antes }}</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3 w-3 text-slate-400">
+                                            <span class="text-brand-400 line-through">{{ c.antes }}</span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3 w-3 text-brand-400">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
                                             </svg>
                                         </template>
-                                        <span class="font-semibold text-slate-800">{{ c.despues ?? '—' }}</span>
+                                        <span class="font-semibold text-brand-800">{{ c.despues ?? '—' }}</span>
                                     </span>
                                 </div>
                             </div>

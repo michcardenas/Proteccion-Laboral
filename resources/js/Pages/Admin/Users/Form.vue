@@ -16,7 +16,7 @@ const emit = defineEmits(['submit']);
 <template>
     <form @submit.prevent="emit('submit')" class="space-y-6">
         <div>
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Información básica</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Información básica</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField label="Nombre completo" :error="form.errors.name" required for="name">
                     <TextInput
@@ -51,7 +51,7 @@ const emit = defineEmits(['submit']);
                     <select
                         id="role"
                         v-model="form.role"
-                        class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     >
                         <option value="">— Selecciona un rol —</option>
                         <option v-for="r in roles" :key="r" :value="r">{{ r }}</option>
@@ -60,8 +60,8 @@ const emit = defineEmits(['submit']);
             </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Acceso</h3>
+        <div class="border-t border-brand-100 pt-6">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-500">Acceso</h3>
             <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                     :label="isEdit ? 'Nueva contraseña (opcional)' : 'Contraseña'"
@@ -98,16 +98,16 @@ const emit = defineEmits(['submit']);
                 <input
                     type="checkbox"
                     v-model="form.is_active"
-                    class="rounded border-slate-300 text-brand-900 shadow-sm focus:ring-brand-900"
+                    class="rounded border-brand-300 text-brand-900 shadow-sm focus:ring-brand-900"
                 />
-                <span class="text-sm text-slate-700">Usuario activo</span>
+                <span class="text-sm text-brand-700">Usuario activo</span>
             </label>
         </div>
 
-        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-6">
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-brand-100 pt-6">
             <Link
                 :href="route('admin.users.index')"
-                class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                class="rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
             >
                 Cancelar
             </Link>

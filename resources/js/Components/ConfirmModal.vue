@@ -20,8 +20,8 @@ const emit = defineEmits(['close', 'confirm']);
 <template>
     <Modal :show="show" max-width="md" @close="emit('close')">
         <div class="p-6">
-            <h2 class="text-lg font-semibold text-gray-900">{{ title }}</h2>
-            <p v-if="message" class="mt-2 text-sm text-gray-600">{{ message }}</p>
+            <h2 class="text-lg font-semibold text-brand-900">{{ title }}</h2>
+            <p v-if="message" class="mt-2 text-sm text-brand-600">{{ message }}</p>
             <div class="mt-6 flex justify-end gap-2">
                 <SecondaryButton @click="emit('close')">{{ cancelLabel }}</SecondaryButton>
                 <DangerButton

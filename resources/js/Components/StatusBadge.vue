@@ -5,23 +5,35 @@ const props = defineProps({
     variant: {
         type: String,
         default: 'gray',
-        validator: (v) => ['gray', 'green', 'red', 'yellow', 'blue', 'indigo', 'purple', 'teal'].includes(v),
+        validator: (v) =>
+            [
+                // Semánticas: preferir estas. Se nombran por lo que significan.
+                'success', 'warning', 'danger', 'info', 'neutral', 'brand',
+                // Por color: quedan por compatibilidad con las pantallas antiguas.
+                'gray', 'green', 'red', 'yellow', 'blue', 'indigo', 'purple', 'teal',
+            ].includes(v),
     },
     label: { type: String, required: true },
 });
 
 const classes = computed(() => {
     const map = {
-        gray: 'bg-gray-100 text-gray-700 ring-gray-300',
-        green: 'bg-green-50 text-green-700 ring-green-200',
-        red: 'bg-red-50 text-red-700 ring-red-200',
-        yellow: 'bg-yellow-50 text-yellow-800 ring-yellow-200',
-        blue: 'bg-blue-50 text-blue-700 ring-blue-200',
-        indigo: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
-        purple: 'bg-purple-50 text-purple-700 ring-purple-200',
-        teal: 'bg-teal-50 text-teal-700 ring-teal-200',
+        success: 'bg-success-50 text-success-700 ring-success-200',
+        warning: 'bg-warning-50 text-warning-700 ring-warning-200',
+        danger: 'bg-danger-50 text-danger-700 ring-danger-200',
+        info: 'bg-info-50 text-info-700 ring-info-200',
+        neutral: 'bg-brand-100 text-brand-700 ring-brand-200',
+        brand: 'bg-brand-900 text-white ring-brand-900',
+        gray: 'bg-brand-100 text-brand-700 ring-brand-300',
+        green: 'bg-success-50 text-success-700 ring-success-200',
+        red: 'bg-danger-50 text-danger-700 ring-danger-200',
+        yellow: 'bg-warning-50 text-warning-800 ring-warning-200',
+        blue: 'bg-info-50 text-info-700 ring-info-200',
+        indigo: 'bg-accent-50 text-accent-700 ring-accent-200',
+        purple: 'bg-accent-50 text-accent-700 ring-accent-200',
+        teal: 'bg-success-50 text-success-700 ring-success-200',
     };
-    return map[props.variant];
+    return map[props.variant] ?? map.neutral;
 });
 </script>
 

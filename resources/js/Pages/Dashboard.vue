@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -21,20 +22,17 @@ const greeting = computed(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div>
-                <h1 class="text-lg font-semibold text-slate-900 sm:text-xl">Dashboard</h1>
-                <p class="text-xs text-slate-500">Vista general de la operación.</p>
-            </div>
+            <PageHeader titulo="Inicio" help-key="dashboard" />
         </template>
 
         <div class="space-y-6">
             <!-- Greeting card -->
-            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-brand-900 via-brand-900 to-brand-800 p-6 text-white shadow-sm">
+            <section class="overflow-hidden rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-900 via-brand-900 to-brand-800 p-6 text-white shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <p class="text-xs uppercase tracking-[0.2em] text-indigo-200">{{ greeting }}</p>
+                        <p class="text-xs uppercase tracking-[0.2em] text-accent-200">{{ greeting }}</p>
                         <h2 class="mt-1 text-2xl font-semibold sm:text-3xl">{{ user.name }}</h2>
-                        <p class="mt-2 max-w-xl text-sm text-slate-200">
+                        <p class="mt-2 max-w-xl text-sm text-brand-200">
                             Estás conectado como <span class="font-semibold text-white">{{ role }}</span>.
                             Usa el menú lateral para acceder a los módulos de la plataforma.
                         </p>

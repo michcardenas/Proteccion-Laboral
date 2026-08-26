@@ -4,7 +4,7 @@ import { Link } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-50 font-sans text-slate-900 lg:grid lg:grid-cols-2">
+    <div class="min-h-screen bg-brand-50 font-sans text-brand-900 lg:grid lg:grid-cols-2">
         <!-- Brand panel (desktop only) -->
         <div class="relative hidden overflow-hidden bg-brand-900 lg:flex lg:flex-col lg:justify-between lg:p-10">
             <div
@@ -16,34 +16,34 @@ import { Link } from '@inertiajs/vue3';
             </div>
 
             <div class="relative max-w-md">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-200">
                     Sistema operativo integral
                 </p>
                 <h1 class="mt-3 text-3xl font-semibold leading-tight text-white">
                     Gestiona tu firma jurídica desde un solo lugar.
                 </h1>
-                <p class="mt-3 text-sm leading-6 text-slate-300">
+                <p class="mt-3 text-sm leading-6 text-brand-300">
                     Casos, procesos, etapas, documentos, facturación y portal de clientes — coordinados con
                     tu equipo en tiempo real.
                 </p>
 
-                <ul class="mt-8 space-y-3 text-sm text-slate-200">
+                <ul class="mt-8 space-y-3 text-sm text-brand-200">
                     <li class="flex gap-3">
-                        <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                        <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-accent-400" />
                         Asesoría laboral permanente y por evento
                     </li>
                     <li class="flex gap-3">
-                        <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                        <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-accent-400" />
                         Representación judicial y estrategia
                     </li>
                     <li class="flex gap-3">
-                        <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                        <span class="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-accent-400" />
                         IA aplicada a generación y análisis legal
                     </li>
                 </ul>
             </div>
 
-            <p class="relative text-xs text-slate-400">
+            <p class="relative text-xs text-brand-400">
                 © {{ new Date().getFullYear() }} Protección Laboral – Soluciones Legales SAS
             </p>
         </div>

@@ -158,12 +158,12 @@ async function guardarComoComentario() {
     <Modal :show="show" max-width="2xl" @close="close">
         <div class="bg-white">
             <!-- Header -->
-            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div class="flex items-center justify-between border-b border-brand-200 px-6 py-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-slate-900">Generar borrador con IA</h3>
-                    <p class="text-xs text-slate-500">Proceso {{ process.codigo }}</p>
+                    <h3 class="text-lg font-semibold text-brand-900">Generar borrador con IA</h3>
+                    <p class="text-xs text-brand-500">Proceso {{ process.codigo }}</p>
                 </div>
-                <button @click="close" class="text-slate-400 transition hover:text-slate-600">
+                <button @click="close" class="text-brand-400 transition hover:text-brand-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -178,7 +178,7 @@ async function guardarComoComentario() {
                         <select
                             id="ai-template"
                             v-model="selectedTemplate"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            class="mt-1 block w-full rounded-md border-brand-300 shadow-sm focus:border-accent-500 focus:ring-accent-500"
                         >
                             <option v-for="t in availableTemplates" :key="t" :value="t">{{ labelFor(t) }}</option>
                         </select>
@@ -192,7 +192,7 @@ async function guardarComoComentario() {
                         v-model="contexto"
                         rows="4"
                         placeholder="Hechos, postura, datos clave del caso que la IA debe tener en cuenta…"
-                        class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        class="mt-1 block w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500"
                     ></textarea>
                 </div>
 
@@ -200,33 +200,33 @@ async function guardarComoComentario() {
                     <PrimaryButton :disabled="loading" @click="generar">
                         {{ loading ? 'Generando…' : (hasResult ? 'Regenerar' : 'Generar') }}
                     </PrimaryButton>
-                    <span v-if="loading" class="text-sm text-slate-500">Llamando a Claude (5–30s)…</span>
+                    <span v-if="loading" class="text-sm text-brand-500">Llamando a Claude (5–30s)…</span>
                 </div>
 
                 <!-- Error / éxito -->
-                <div v-if="error" class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 whitespace-pre-wrap">
+                <div v-if="error" class="rounded-md border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700 whitespace-pre-wrap">
                     {{ error }}
                 </div>
-                <div v-if="successMsg" class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                <div v-if="successMsg" class="rounded-md border border-success-200 bg-success-50 p-3 text-sm text-success-700">
                     {{ successMsg }}
                 </div>
 
                 <!-- Preview editable + acciones de guardado -->
-                <div v-if="hasResult" class="space-y-5 border-t border-slate-100 pt-5">
+                <div v-if="hasResult" class="space-y-5 border-t border-brand-100 pt-5">
                     <div>
                         <InputLabel for="ai-borrador" value="Borrador (editable)" />
                         <textarea
                             id="ai-borrador"
                             v-model="borrador"
                             rows="12"
-                            class="mt-1 block w-full rounded-md border-gray-300 font-mono text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            class="mt-1 block w-full rounded-md border-brand-300 font-mono text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500"
                         ></textarea>
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <!-- Guardar como Document -->
-                        <div class="rounded-lg border border-slate-200 p-4">
-                            <h4 class="text-sm font-semibold text-slate-800">Guardar como Documento</h4>
+                        <div class="rounded-lg border border-brand-200 p-4">
+                            <h4 class="text-sm font-semibold text-brand-800">Guardar como Documento</h4>
                             <div class="mt-3 space-y-3">
                                 <div>
                                     <InputLabel for="doc-nombre" value="Nombre" />
@@ -235,7 +235,7 @@ async function guardarComoComentario() {
                                         v-model="docNombre"
                                         type="text"
                                         maxlength="200"
-                                        class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        class="mt-1 block w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500"
                                     />
                                 </div>
                                 <div>
@@ -243,12 +243,12 @@ async function guardarComoComentario() {
                                     <select
                                         id="doc-tipo"
                                         v-model="docTipo"
-                                        class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        class="mt-1 block w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-accent-500 focus:ring-accent-500"
                                     >
                                         <option v-for="t in DOC_TYPES" :key="t" :value="t">{{ t }}</option>
                                     </select>
                                 </div>
-                                <label class="flex items-center gap-2 text-sm text-slate-600">
+                                <label class="flex items-center gap-2 text-sm text-brand-600">
                                     <Checkbox v-model:checked="docVisibleCliente" />
                                     Visible para el cliente
                                 </label>
@@ -259,13 +259,13 @@ async function guardarComoComentario() {
                         </div>
 
                         <!-- Guardar como Comment -->
-                        <div class="rounded-lg border border-slate-200 p-4">
-                            <h4 class="text-sm font-semibold text-slate-800">Guardar como Comentario</h4>
+                        <div class="rounded-lg border border-brand-200 p-4">
+                            <h4 class="text-sm font-semibold text-brand-800">Guardar como Comentario</h4>
                             <div class="mt-3 space-y-3">
-                                <p class="text-xs text-slate-500">
+                                <p class="text-xs text-brand-500">
                                     Se guarda el texto del borrador como comentario interno del proceso.
                                 </p>
-                                <label class="flex items-center gap-2 text-sm text-slate-600">
+                                <label class="flex items-center gap-2 text-sm text-brand-600">
                                     <Checkbox v-model:checked="commentVisibleCliente" />
                                     Visible para el cliente
                                 </label>
@@ -279,7 +279,7 @@ async function guardarComoComentario() {
             </div>
 
             <!-- Footer -->
-            <div class="flex justify-end border-t border-slate-200 px-6 py-3">
+            <div class="flex justify-end border-t border-brand-200 px-6 py-3">
                 <SecondaryButton @click="close">Cerrar</SecondaryButton>
             </div>
         </div>
