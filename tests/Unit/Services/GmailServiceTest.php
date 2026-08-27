@@ -31,7 +31,7 @@ class GmailServiceTest extends TestCase
             ->once()
             ->andReturn('https://accounts.google.com/o/oauth2/auth?foo=bar');
 
-        $service = (new GmailService())->setClient($client);
+        $service = (new GmailService)->setClient($client);
 
         $this->assertSame(
             'https://accounts.google.com/o/oauth2/auth?foo=bar',
@@ -56,7 +56,8 @@ class GmailServiceTest extends TestCase
         $client->shouldReceive('setAccessToken')->once();
 
         // Sobreescribimos fetchAccountEmail para no llamar a la API real de Google.
-        $service = new class extends GmailService {
+        $service = new class extends GmailService
+        {
             protected function fetchAccountEmail(): string
             {
                 return 'legal@proteccionlaboral.co';
@@ -93,7 +94,7 @@ class GmailServiceTest extends TestCase
             ->once()
             ->andReturn(['error' => 'invalid_grant', 'error_description' => 'Bad code']);
 
-        $service = (new GmailService())->setClient($client);
+        $service = (new GmailService)->setClient($client);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Bad code');
@@ -127,7 +128,7 @@ class GmailServiceTest extends TestCase
             ],
         ];
 
-        $result = (new GmailService())->normalizeMessage($raw);
+        $result = (new GmailService)->normalizeMessage($raw);
 
         $this->assertSame('msg-1', $result['message_id']);
         $this->assertSame('Juzgado <juez@ramajudicial.gov.co>', $result['from']);
@@ -161,7 +162,7 @@ class GmailServiceTest extends TestCase
             ],
         ];
 
-        $result = (new GmailService())->normalizeMessage($raw);
+        $result = (new GmailService)->normalizeMessage($raw);
 
         $this->assertSame('Texto anidado', $result['body_text']);
         $this->assertSame('Anidado', $result['subject']);
@@ -171,7 +172,7 @@ class GmailServiceTest extends TestCase
 
     public function test_decode_base64_url(): void
     {
-        $service = new GmailService();
+        $service = new GmailService;
         $encoded = $this->b64url('Contenido con ñ y +/');
 
         $this->assertSame('Contenido con ñ y +/', $service->decodeBase64Url($encoded));
@@ -179,7 +180,7 @@ class GmailServiceTest extends TestCase
 
     public function test_extract_header_is_case_insensitive(): void
     {
-        $service = new GmailService();
+        $service = new GmailService;
         $headers = [
             ['name' => 'From', 'value' => 'a@b.com'],
             ['name' => 'Subject', 'value' => 'Hola'],
@@ -205,7 +206,7 @@ class GmailServiceTest extends TestCase
             ],
         ];
 
-        $result = (new GmailService())->normalizeMessage($raw);
+        $result = (new GmailService)->normalizeMessage($raw);
 
         $this->assertSame('thr-9', $result['thread_id']);
         $this->assertSame('<abc123@mail.gmail.com>', $result['message_id_header']);
@@ -215,7 +216,7 @@ class GmailServiceTest extends TestCase
 
     public function test_build_raw_message_encodes_headers_threading_and_body(): void
     {
-        $encoded = (new GmailService())->buildRawMessage(
+        $encoded = (new GmailService)->buildRawMessage(
             'cliente@empresa.com',
             'Re: Fijación de audiencia',
             'Estimado cliente, confirmamos recepción.',
@@ -237,11 +238,29 @@ class GmailServiceTest extends TestCase
 
     public function test_build_raw_message_without_threading_omits_reply_headers(): void
     {
-        $encoded = (new GmailService())->buildRawMessage('a@b.com', 'Hola', 'Cuerpo');
+        $encoded = (new GmailService)->buildRawMessage('a@b.com', 'Hola', 'Cuerpo');
         $mime = base64_decode(strtr($encoded, '-_', '+/'));
 
         $this->assertStringNotContainsString('In-Reply-To:', $mime);
         $this->assertStringContainsString('To: a@b.com', $mime);
         $this->assertStringContainsString('Subject: Hola', $mime);
+    }
+
+    /**
+     * La URL de autorizacion tiene que dejar ELEGIR cuenta.
+     *
+     * Con `prompt=consent` a secas, Google reautoriza la cuenta que ya tenga
+     * sesion en el navegador sin preguntar. Asi acabo produccion conectada a un
+     * Gmail personal: la pantalla no daba forma de cambiarla, y desconectar y
+     * volver a conectar reconectaba la misma. Con `select_account` delante,
+     * siempre aparece el selector.
+     */
+    public function test_la_url_de_autorizacion_deja_elegir_cuenta_y_pide_drive(): void
+    {
+        parse_str(parse_url((new GmailService)->getAuthUrl(), PHP_URL_QUERY), $q);
+
+        $this->assertStringContainsString('select_account', $q['prompt'] ?? '');
+        $this->assertSame('offline', $q['access_type'] ?? null, 'hace falta para el refresh token');
+        $this->assertStringContainsString('drive.readonly', $q['scope'] ?? '');
     }
 }
