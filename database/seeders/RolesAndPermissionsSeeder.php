@@ -82,7 +82,12 @@ class RolesAndPermissionsSeeder extends Seeder
         // gestiona procesos/contratos y asigna, pero NO crea clientes (reservado a
         // coordinador/director) ni administra usuarios/roles/ajustes.
         'abogado_senior' => [
-            'clients.view', 'clients.activate_portal',
+            // `clients.update` es lo que permite asignar abogadas al cliente y
+            // mantener sus contactos, no solo editar la ficha. Sin el, un rol
+            // descrito como "ve todos los clientes y asigna" no podia asignar
+            // en el unico sitio donde se decide quien lleva a quien.
+            // Sigue sin poder crear ni borrar clientes: eso es de coordinacion.
+            'clients.view', 'clients.update', 'clients.activate_portal',
             'services.view',
             'contracts.view', 'contracts.create', 'contracts.update',
             'processes.view', 'processes.create', 'processes.update', 'processes.assign', 'processes.close',

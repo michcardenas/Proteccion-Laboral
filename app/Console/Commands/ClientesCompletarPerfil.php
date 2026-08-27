@@ -47,6 +47,7 @@ class ClientesCompletarPerfil extends Command
 
         $aplicar = (bool) $this->option('ejecutar');
         $filas = [];
+        $duplicados = [];
 
         foreach ($clientes as $cliente) {
             try {
@@ -72,6 +73,21 @@ class ClientesCompletarPerfil extends Command
                     continue;
                 }
 
+                // El NIT es unico. Si otro cliente ya lo tiene, no es un fallo
+                // del dato: es que los dos son la misma empresa, cargada dos
+                // veces desde carpetas distintas de Drive. Se anota y se sigue.
+                // Antes reventaba la corrida entera y dejaba sin perfil a todos
+                // los clientes que venian detras.
+                if ($campo === 'nit') {
+                    $duenno = Client::where('nit', $valor)->whereKeyNot($cliente->id)->first();
+
+                    if ($duenno) {
+                        $duplicados[] = [$cliente->razon_social, $duenno->razon_social, $valor];
+
+                        continue;
+                    }
+                }
+
                 $cambios[$campo] = Str::limit($valor, $campo === 'nit' ? 30 : 150, '');
             }
 
@@ -92,6 +108,13 @@ class ClientesCompletarPerfil extends Command
 
         $this->newLine();
         $this->table(['Cliente', 'Campo', 'Valor'], $filas);
+
+        if ($duplicados !== []) {
+            $this->newLine();
+            $this->warn('Mismo NIT en dos clientes. Casi seguro son la misma empresa cargada dos veces:');
+            $this->table(['Cliente', 'Ya lo tiene', 'NIT'], $duplicados);
+            $this->line('Su NIT se dejo sin tocar. Fusionarlos lo decide el despacho.');
+        }
 
         if (! $aplicar) {
             $this->info('Nada se guardo. Repite con --ejecutar.');
