@@ -285,4 +285,63 @@ class DriveKnowledgeSyncTest extends TestCase
 
         $this->assertNull(Document::where('drive_file_id', 'f1')->firstOrFail()->process_id);
     }
+
+    /**
+     * Una empresa llevada por dos abogadas tiene carpeta bajo cada una. Durante
+     * la importación del despacho eso pisaba el único campo `drive_folder_id`
+     * del cliente, y la primera carpeta —con sus documentos— desaparecía sin
+     * que nada avisara. Las carpetas de más viven ahora en su propia tabla y el
+     * sync las recorre todas.
+     */
+    public function test_sincroniza_las_carpetas_de_las_dos_abogadas(): void
+    {
+        $client = $this->cliente();
+        $client->carpetasDriveExtra()->create([
+            'drive_folder_id' => 'folder-xyz',
+            'drive_folder_name' => 'DR JUAN DAVID / SUMITOR',
+        ]);
+
+        $porCarpeta = [
+            'folder-abc' => [$this->archivo(['id' => 'f1', 'name' => 'demanda.txt'])],
+            'folder-xyz' => [$this->archivo(['id' => 'f2', 'name' => 'contestacion.txt'])],
+        ];
+
+        $drive = Mockery::mock(DriveService::class, [new GmailService])->makePartial();
+        $drive->shouldReceive('listFilesRecursive')
+            ->andReturnUsing(fn (string $folderId) => $porCarpeta[$folderId] ?? []);
+        $drive->shouldReceive('downloadFile')->andReturnUsing(
+            fn (array $file) => $file['id'] === 'f1' ? 'texto de la demanda' : 'texto de la contestación'
+        );
+
+        $stats = (new DriveKnowledgeSync($drive, new DocumentTextExtractor))->syncClient($client);
+
+        $this->assertSame(2, $stats['nuevos'], 'los documentos de ambas carpetas');
+        $this->assertSame(0, $stats['eliminados'], 'ninguna carpeta se da por ausente');
+
+        // Y sobre todo: el de la segunda abogada no se pierde.
+        $this->assertDatabaseHas('documents', ['drive_file_id' => 'f2', 'client_id' => $client->id]);
+    }
+
+    /** El tope de archivos es del cliente, no de cada carpeta. */
+    public function test_el_tope_de_archivos_no_se_duplica_por_tener_dos_carpetas(): void
+    {
+        config()->set('drive.max_files_per_client', 3);
+
+        $client = $this->cliente();
+        $client->carpetasDriveExtra()->create(['drive_folder_id' => 'folder-xyz']);
+
+        $lote = fn (string $prefijo) => array_map(
+            fn (int $i) => $this->archivo(['id' => "{$prefijo}{$i}", 'name' => "doc{$i}.txt"]),
+            range(1, 4),
+        );
+
+        $drive = Mockery::mock(DriveService::class, [new GmailService])->makePartial();
+        $drive->shouldReceive('listFilesRecursive')
+            ->andReturnUsing(fn (string $folderId) => $lote($folderId === 'folder-abc' ? 'a' : 'b'));
+        $drive->shouldReceive('downloadFile')->andReturn('contenido');
+
+        $stats = (new DriveKnowledgeSync($drive, new DocumentTextExtractor))->syncClient($client);
+
+        $this->assertSame(3, $stats['nuevos']);
+    }
 }
