@@ -9,12 +9,16 @@ use Google\Service\Gmail\Label;
 use Google\Service\Gmail\Message as GmailMessage;
 use Google\Service\Gmail\ModifyMessageRequest;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use RuntimeException;
 
 class GmailService
 {
     protected ?GoogleClient $client = null;
+
+    /** Cuenta sobre la que trabaja esta instancia. Null = la ultima conectada. */
+    protected ?IntegrationToken $cuenta = null;
 
     public function __construct(
         protected ?string $clientId = null,
@@ -288,7 +292,11 @@ class GmailService
      */
     protected function authorizeFromStoredToken(): void
     {
-        $token = IntegrationToken::query()
+        // Con `paraCuenta()` se trabaja sobre una cuenta concreta. Sin ella se
+        // coge la ultima conectada, que es lo que hacia siempre: valia cuando
+        // habia una sola bandeja compartida, y con una cuenta por abogada
+        // significa que conectar la tuya deja fuera a la anterior.
+        $token = $this->cuenta ?? IntegrationToken::query()
             ->where('provider', IntegrationToken::PROVIDER_GMAIL)
             ->latest('id')
             ->first();
@@ -440,5 +448,30 @@ class GmailService
         }
 
         return '';
+    }
+
+    /**
+     * Fija sobre que cuenta de Gmail trabaja esta instancia.
+     *
+     * Devuelve una copia: el servicio se resuelve del contenedor y compartir
+     * instancia significaria que fijar la cuenta para leer el correo de una
+     * abogada se lo cambia a quien lo estuviera usando en el mismo proceso.
+     */
+    public function paraCuenta(IntegrationToken $cuenta): self
+    {
+        $copia = clone $this;
+        $copia->cuenta = $cuenta;
+        $copia->client = null;
+
+        return $copia;
+    }
+
+    /** Cuentas de Gmail conectadas, en orden de conexion. */
+    public static function cuentasConectadas(): Collection
+    {
+        return IntegrationToken::query()
+            ->where('provider', IntegrationToken::PROVIDER_GMAIL)
+            ->orderBy('id')
+            ->get();
     }
 }

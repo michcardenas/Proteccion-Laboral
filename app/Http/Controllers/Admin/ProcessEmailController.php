@@ -100,8 +100,15 @@ class ProcessEmailController extends Controller
 
         $payload = $ingestion->raw_payload ?? [];
 
+        // Se responde DESDE la cuenta que recibio el correo. Enviar siempre
+        // desde la ultima conectada hacia salir la respuesta de una abogada
+        // con el remitente de otra.
+        $gmail = $ingestion->integrationToken
+            ? $this->gmail->paraCuenta($ingestion->integrationToken)
+            : $this->gmail;
+
         try {
-            $sentId = $this->gmail->sendReply([
+            $sentId = $gmail->sendReply([
                 'to' => $to,
                 'subject' => $data['subject'],
                 'body' => $data['body'],
