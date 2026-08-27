@@ -12,6 +12,17 @@ return [
         // Al añadir este scope hay que reconectar la cuenta: el token existente NO lo tiene.
         'https://www.googleapis.com/auth/drive.readonly',
     ],
+    /*
+     * Desde cuándo interesa el correo (AAAA-MM-DD).
+     *
+     * Sin esto, conectar una cuenta ingiere y clasifica TODO su histórico sin
+     * leer de una sentada, y cada correo cuesta dinero. A la cuenta de
+     * automatización le pasó: tres meses procesados de golpe.
+     *
+     * Vacío = sin límite, que es el comportamiento original.
+     */
+    'ingest_since' => env('GMAIL_INGEST_SINCE'),
+
     'access_type' => 'offline',
 
     /*

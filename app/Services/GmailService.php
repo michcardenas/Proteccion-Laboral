@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use RuntimeException;
+use Throwable;
 
 class GmailService
 {
@@ -119,12 +120,42 @@ class GmailService
      *     received_at: ?string
      * }>
      */
+
+    /**
+     * La busqueda de correo sin leer, acotada por fecha.
+     *
+     * Sin acotar, conectar una cuenta ingiere y clasifica TODO su historico sin
+     * leer de una sentada. Le paso a la cuenta de automatizacion: tres meses de
+     * correo procesados de golpe en cuanto se desatasco el sondeo. Con cuatro
+     * abogadas por conectar, eso son cuatro sustos mas.
+     *
+     * `GMAIL_INGEST_SINCE` (AAAA-MM-DD) marca desde cuando interesa el correo.
+     * Sin valor no se acota, que es el comportamiento de siempre.
+     */
+    protected function consultaDeNoLeidos(): string
+    {
+        $desde = trim((string) config('gmail.ingest_since'));
+
+        if ($desde === '') {
+            return 'is:unread';
+        }
+
+        try {
+            // Gmail espera AAAA/MM/DD en `after:`.
+            $fecha = Carbon::parse($desde)->format('Y/m/d');
+        } catch (Throwable) {
+            return 'is:unread';
+        }
+
+        return "is:unread after:{$fecha}";
+    }
+
     public function fetchUnread(int $maxResults = 50): array
     {
         $gmail = $this->gmail();
 
         $list = $gmail->users_messages->listUsersMessages('me', [
-            'q' => 'is:unread',
+            'q' => $this->consultaDeNoLeidos(),
             'maxResults' => $maxResults,
         ]);
 
