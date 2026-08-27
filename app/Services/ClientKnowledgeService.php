@@ -24,13 +24,19 @@ class ClientKnowledgeService
     /**
      * Máximo de documentos a considerar para la ficha (los más recientes).
      *
-     * Deliberadamente alto: quien manda es el presupuesto de caracteres. Medido
-     * con clientes reales, este tope NUNCA llegaba a activarse —Melendez entró
-     * con 12 documentos de 96 y Primavera con 8 de 11— porque el texto se
-     * acababa mucho antes. Subir este número solo, como parecía la solución
-     * obvia, no habría cambiado ni un documento.
+     * Con TEXTO CRUDO este tope nunca llegaba a activarse: mandaba el
+     * presupuesto de caracteres y la ficha se quedaba sin espacio en el octavo
+     * documento. Con RESÚMENES se dio la vuelta — un resumen ocupa ~900
+     * caracteres, así que en los 200.000 caben más de doscientos y el que
+     * estorba pasa a ser este número.
+     *
+     * Se vio con ELIAS ACOSTA: 160 documentos con texto, de los que entraban 88
+     * (55%), porque `latest()->limit(120)` recortaba antes de mirar el
+     * presupuesto. Ahora se pone por encima de lo que el presupuesto puede
+     * sostener, para que el que frene siga siendo el de caracteres —que degrada
+     * bien, cortando por el documento más viejo— y no este.
      */
-    public const MAX_DOCS = 120;
+    public const MAX_DOCS = 300;
 
     /**
      * Máximo de caracteres del texto extraído por documento.

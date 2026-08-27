@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 class AiService
@@ -11,9 +12,9 @@ class AiService
      * input = costo por 1M tokens de entrada; output = costo por 1M tokens de salida.
      */
     public const PRICING = [
-        'claude-sonnet-4-6'  => ['input' => 3.00,  'output' => 15.00],
-        'claude-opus-4-7'    => ['input' => 15.00, 'output' => 75.00],
-        'claude-haiku-4-5'   => ['input' => 0.80,  'output' => 4.00],
+        'claude-sonnet-4-6' => ['input' => 3.00,  'output' => 15.00],
+        'claude-opus-4-7' => ['input' => 15.00, 'output' => 75.00],
+        'claude-haiku-4-5' => ['input' => 0.80,  'output' => 4.00],
     ];
 
     /**
@@ -48,9 +49,11 @@ class AiService
     /**
      * Generates an AI draft from a user prompt.
      *
-     * @param  string       $prompt        User prompt / instruction.
+     * @param  string  $prompt  User prompt / instruction.
      * @param  string|null  $systemPrompt  Optional system message to steer the model.
-     * @param  array        $options       Overrides: model, max_tokens, temperature, metadata.
+     * @param  array  $options  Overrides: model, max_tokens, temperature, metadata,
+     *                          timeout, e `images` (lista de
+     *                          ['media_type' => 'image/png', 'data' => base64]).
      * @return array{
      *     text: string,
      *     model: string,
@@ -62,11 +65,35 @@ class AiService
      */
     public function generateDraft(string $prompt, ?string $systemPrompt = null, array $options = []): array
     {
+        // Con imágenes el contenido deja de ser una cadena y pasa a ser una
+        // lista de bloques. Es aditivo: quien no mande `images` sigue enviando
+        // texto plano exactamente igual que antes. Lo usa el OCR de escaneados,
+        // que en un despacho laboral son la mayoría de lo que importa —
+        // demandas radicadas, sentencias, incapacidades.
+        //
+        // Las imágenes van ANTES del texto a propósito: es el orden que
+        // recomienda Anthropic cuando la instrucción se refiere a ellas.
+        $contenido = $prompt;
+        if (! empty($options['images'])) {
+            $contenido = [];
+            foreach ($options['images'] as $img) {
+                $contenido[] = [
+                    'type' => 'image',
+                    'source' => [
+                        'type' => 'base64',
+                        'media_type' => $img['media_type'],
+                        'data' => $img['data'],
+                    ],
+                ];
+            }
+            $contenido[] = ['type' => 'text', 'text' => $prompt];
+        }
+
         $payload = [
             'model' => $options['model'] ?? $this->model,
             'max_tokens' => $options['max_tokens'] ?? $this->maxTokens,
             'messages' => [
-                ['role' => 'user', 'content' => $prompt],
+                ['role' => 'user', 'content' => $contenido],
             ],
         ];
 
@@ -86,10 +113,10 @@ class AiService
         $startedAt = hrtime(true);
 
         $response = Http::withHeaders([
-                'x-api-key' => $this->apiKey,
-                'anthropic-version' => config('anthropic.anthropic_version'),
-                'content-type' => 'application/json',
-            ])
+            'x-api-key' => $this->apiKey,
+            'anthropic-version' => config('anthropic.anthropic_version'),
+            'content-type' => 'application/json',
+        ])
             // `timeout` por llamada: una redacción corta se resuelve en segundos,
             // pero un informe de 20.000 tokens no cabe en el tiempo por defecto.
             // Es aditivo: quien no lo mande sigue con el de config/anthropic.php.
@@ -98,7 +125,7 @@ class AiService
             ->retry(
                 3,
                 fn (int $attempt) => $attempt * 15000,
-                fn ($exception) => $exception instanceof \Illuminate\Http\Client\RequestException
+                fn ($exception) => $exception instanceof RequestException
                     && in_array($exception->response->status(), [429, 529], true),
             )
             ->post(config('anthropic.base_url').'/messages', $payload)
@@ -131,11 +158,11 @@ class AiService
      *
      * @param  array  $payload  Email a clasificar:
      *                          ['from' => string, 'subject' => string,
-     *                           'body_text' => string, 'attachments' => string[]]
+     *                          'body_text' => string, 'attachments' => string[]]
      * @param  array  $context  Contexto adicional opcional:
      *                          ['known_processes' => array<int, array{code: string, client_name: string, ...}>,
-     *                           'known_clients' => array<int, array{razon_social: string, nit: ?string}>,
-     *                           'known_service_types' => string[]]
+     *                          'known_clients' => array<int, array{razon_social: string, nit: ?string}>,
+     *                          'known_service_types' => string[]]
      * @return array{
      *     action: string,
      *     confidence: float,
@@ -151,7 +178,7 @@ class AiService
      * }
      *
      * @throws \RuntimeException si la respuesta de Claude no contiene los campos requeridos.
-     * @throws \JsonException    si la respuesta no es JSON válido.
+     * @throws \JsonException si la respuesta no es JSON válido.
      */
     public function classifyEmail(array $payload, array $context = []): array
     {
@@ -183,8 +210,8 @@ class AiService
      * entregables transversales y tareas del tablero Kanban.
      *
      * @param  string  $documentText  Texto plano del documento subido.
-     * @param  array   $context       ['today', 'process_code', 'client_name',
-     *                                 'service_type', 'fecha_apertura']
+     * @param  array  $context  ['today', 'process_code', 'client_name',
+     *                          'service_type', 'fecha_apertura']
      * @return array{
      *     tipo_documento: string,
      *     resumen: string,
@@ -197,7 +224,7 @@ class AiService
      * }
      *
      * @throws \RuntimeException si la respuesta no trae las listas requeridas.
-     * @throws \JsonException    si la respuesta no es JSON válido.
+     * @throws \JsonException si la respuesta no es JSON válido.
      */
     public function extractWorkPlan(string $documentText, array $context = []): array
     {
@@ -313,10 +340,10 @@ class AiService
     /**
      * Estimates the USD cost of a Claude API call given token counts.
      *
-     * @param  int          $inputTokens   Tokens in the prompt.
-     * @param  int          $outputTokens  Tokens produced by the model.
-     * @param  string|null  $model         Model id; defaults to configured model.
-     * @return float                       Cost in USD.
+     * @param  int  $inputTokens  Tokens in the prompt.
+     * @param  int  $outputTokens  Tokens produced by the model.
+     * @param  string|null  $model  Model id; defaults to configured model.
+     * @return float Cost in USD.
      *
      * @throws \InvalidArgumentException si el modelo no está en la tabla de precios.
      */
@@ -330,7 +357,7 @@ class AiService
 
         $rates = self::PRICING[$model];
 
-        return ($inputTokens  / 1_000_000) * $rates['input']
+        return ($inputTokens / 1_000_000) * $rates['input']
              + ($outputTokens / 1_000_000) * $rates['output'];
     }
 }
