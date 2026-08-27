@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Services\DriveKnowledgeSync;
 use App\Services\DriveService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -110,7 +111,7 @@ class DriveSyncKnowledge extends Command
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Client>
+     * @return Collection<int, Client>
      */
     protected function resolverClientes()
     {

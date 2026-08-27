@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -39,8 +40,8 @@ class TaskController extends Controller
         // Cierre reutilizable: restringe una consulta de Process a los del usuario.
         $soloMisProcesos = fn ($q) => $q->where(function ($qq) use ($user) {
             $qq->where('abogado_lider_id', $user->id)
-               ->orWhere('apoderado_id', $user->id)
-               ->orWhere('coordinador_id', $user->id);
+                ->orWhere('apoderado_id', $user->id)
+                ->orWhere('coordinador_id', $user->id);
         });
 
         // Tareas visibles = las de un proceso en el que el usuario está asignado
@@ -198,7 +199,7 @@ class TaskController extends Controller
      * Correos del proceso de la tarea que todavía NO están adjuntos a esta tarjeta,
      * para ofrecerlos como adjuntables (contexto para quien la ejecuta).
      *
-     * @return \Illuminate\Support\Collection<int, array>
+     * @return Collection<int, array>
      */
     private function availableProcessEmails(Task $task)
     {
@@ -255,7 +256,7 @@ class TaskController extends Controller
      * Documentos del proceso de la tarea que todavía no están vinculados a una
      * tarjeta (task_id null), para ofrecerlos como adjuntables.
      *
-     * @return \Illuminate\Support\Collection<int, array>
+     * @return Collection<int, array>
      */
     private function availableProcessDocuments(Task $task)
     {
@@ -290,7 +291,7 @@ class TaskController extends Controller
             'mime' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $document = new Document();
+        $document = new Document;
         $document->task_id = $task->id;
         $document->process_id = $task->process_id;
         $document->nombre = $data['nombre'];
@@ -435,7 +436,7 @@ class TaskController extends Controller
      * ¿Tiene el usuario visibilidad restringida (solo `processes.view_assigned`,
      * sin `processes.view`)? Los demás (director, coordinador, etc.) ven todo.
      */
-    private function visibilidadRestringida(\App\Models\User $user): bool
+    private function visibilidadRestringida(User $user): bool
     {
         return ! $user->can('processes.view') && $user->can('processes.view_assigned');
     }
@@ -443,7 +444,7 @@ class TaskController extends Controller
     /**
      * ¿Es el usuario líder, apoderado o coordinador de este proceso?
      */
-    private function canAccessProcess(\App\Models\User $user, ?Process $process): bool
+    private function canAccessProcess(User $user, ?Process $process): bool
     {
         return $process
             && ($process->abogado_lider_id === $user->id

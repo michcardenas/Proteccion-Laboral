@@ -29,8 +29,11 @@ class DemoGptPortal extends Command
     protected $description = 'Arma un ejemplo completo del portal del cliente (GPT SEGUROS) con IA';
 
     private const CLIENT_ID = 8;        // GPT SEGUROS
+
     private const SERVICE_TYPE_ID = 7;  // Diagnóstico e Implementación Laboral
+
     private const ABOGADO_ID = 3;       // Leidy (abogado_interno)
+
     private const DEMO_CODE = 'PL-GPT-DEMO';
 
     public function handle(AiService $ai, DocumentTextExtractor $extractor): int
@@ -77,7 +80,7 @@ class DemoGptPortal extends Command
 
         $this->newLine();
         $this->info('==================== PORTAL LISTO ====================');
-        $this->line("  URL:      http://127.0.0.1:8000/portal/login");
+        $this->line('  URL:      http://127.0.0.1:8000/portal/login');
         $this->line("  NIT:      {$nit}");
         $this->line("  Password: {$password}");
         $this->line("  Cliente:  {$client->razon_social}");
@@ -99,12 +102,13 @@ class DemoGptPortal extends Command
         foreach ($archivos as $ruta) {
             if (! is_file($ruta)) {
                 $this->warn("No encontrado: {$ruta}");
+
                 continue;
             }
             try {
                 $file = new UploadedFile($ruta, basename($ruta), null, null, true);
                 $texto = $extractor->extract($file);
-                $textos[] = "===== ".basename($ruta)." =====\n".$texto;
+                $textos[] = '===== '.basename($ruta)." =====\n".$texto;
                 $this->line('  Texto extraído de '.basename($ruta).' ('.mb_strlen($texto).' chars)');
             } catch (\Throwable $e) {
                 $this->warn('No se pudo leer '.basename($ruta).': '.$e->getMessage());

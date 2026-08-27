@@ -264,8 +264,8 @@ class EmailRouter
     protected function systemUserId(Process $process): ?int
     {
         return IntegrationToken::query()
-                ->where('provider', IntegrationToken::PROVIDER_GMAIL)
-                ->value('connected_by_user_id')
+            ->where('provider', IntegrationToken::PROVIDER_GMAIL)
+            ->value('connected_by_user_id')
             ?? $process->abogado_lider_id
             ?? $process->coordinador_id
             ?? User::query()->value('id');

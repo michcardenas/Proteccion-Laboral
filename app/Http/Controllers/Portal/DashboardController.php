@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Client;
+use App\Models\Document;
 use App\Models\Process;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,7 +18,7 @@ class DashboardController extends Controller
      */
     public function index(): Response
     {
-        /** @var \App\Models\Client $client */
+        /** @var Client $client */
         $client = Auth::guard('client')->user();
 
         $processes = $client->processes()
@@ -54,7 +57,7 @@ class DashboardController extends Controller
      */
     public function show(Process $process): Response
     {
-        /** @var \App\Models\Client $client */
+        /** @var Client $client */
         $client = Auth::guard('client')->user();
 
         // Aislamiento: el proceso debe pertenecer a este cliente.
@@ -149,9 +152,9 @@ class DashboardController extends Controller
      * Descarga de un documento desde el portal. El cliente solo puede abrir
      * documentos que pertenezcan a alguno de SUS procesos.
      */
-    public function downloadDocument(\App\Models\Document $document)
+    public function downloadDocument(Document $document)
     {
-        /** @var \App\Models\Client $client */
+        /** @var Client $client */
         $client = Auth::guard('client')->user();
 
         // El documento debe estar ligado a un proceso de este cliente.
@@ -167,7 +170,7 @@ class DashboardController extends Controller
             return redirect()->away($document->ruta);
         }
 
-        $disk = \Illuminate\Support\Facades\Storage::disk($document->disco ?? 'local');
+        $disk = Storage::disk($document->disco ?? 'local');
         abort_unless($document->ruta && $disk->exists($document->ruta), 404, 'El archivo ya no está disponible.');
 
         $inline = in_array($document->mime, [

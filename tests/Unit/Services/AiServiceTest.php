@@ -29,7 +29,7 @@ class AiServiceTest extends TestCase
             ], 200),
         ]);
 
-        $service = new AiService();
+        $service = new AiService;
         $result = $service->generateDraft(
             prompt: 'Genera un borrador para el caso X',
             systemPrompt: 'Eres un asistente legal'
@@ -72,7 +72,7 @@ class AiServiceTest extends TestCase
             ], 200),
         ]);
 
-        $result = (new AiService())->generateDraft('hola');
+        $result = (new AiService)->generateDraft('hola');
 
         $this->assertSame('Parte 1. Parte 2.', $result['text']);
     }
@@ -88,7 +88,7 @@ class AiServiceTest extends TestCase
             ], 200),
         ]);
 
-        (new AiService())->generateDraft('hola');
+        (new AiService)->generateDraft('hola');
 
         Http::assertSent(fn ($request) => ! isset($request->data()['system']));
     }
@@ -109,7 +109,7 @@ class AiServiceTest extends TestCase
 
     public function test_estimate_cost_haiku_pricing(): void
     {
-        $ai = new AiService();
+        $ai = new AiService;
 
         // 1M+1M Haiku: 0.80 + 4.00 = 4.80
         $this->assertEqualsWithDelta(4.80, $ai->estimateCost(1_000_000, 1_000_000, 'claude-haiku-4-5'), 1e-9);
@@ -118,7 +118,7 @@ class AiServiceTest extends TestCase
     public function test_estimate_cost_unknown_model_throws(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        (new AiService())->estimateCost(10, 5, 'modelo-inexistente');
+        (new AiService)->estimateCost(10, 5, 'modelo-inexistente');
     }
 
     // === classifyEmail ===
@@ -147,7 +147,7 @@ class AiServiceTest extends TestCase
             ], 200),
         ]);
 
-        $result = (new AiService())->classifyEmail([
+        $result = (new AiService)->classifyEmail([
             'from' => 'notificaciones@ramajudicial.gov.co',
             'subject' => 'Fijación de audiencia inicial',
             'body_text' => 'Cordial saludo. Se fija audiencia inicial...',
@@ -185,7 +185,7 @@ class AiServiceTest extends TestCase
             ], 200),
         ]);
 
-        $result = (new AiService())->classifyEmail([
+        $result = (new AiService)->classifyEmail([
             'from' => 'desconocido@gmail.com',
             'subject' => '?',
             'body_text' => 'Hola, necesito ayuda con algo laboral.',
@@ -212,7 +212,7 @@ class AiServiceTest extends TestCase
             ], 200),
         ]);
 
-        $result = (new AiService())->classifyEmail([
+        $result = (new AiService)->classifyEmail([
             'from' => 'promo@spam.com',
             'subject' => '¡Oferta!',
             'body_text' => 'Compre ahora...',
@@ -240,7 +240,7 @@ class AiServiceTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage("'action'");
 
-        (new AiService())->classifyEmail([
+        (new AiService)->classifyEmail([
             'from' => 'a@b.com',
             'subject' => 'x',
             'body_text' => 'y',

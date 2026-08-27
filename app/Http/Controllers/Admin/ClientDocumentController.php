@@ -9,8 +9,6 @@ use App\Models\Document;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ClientDocumentController extends Controller
 {

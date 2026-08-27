@@ -49,8 +49,8 @@ class PaymentReportController extends Controller
             if (! $user->can('processes.view') && $user->can('processes.view_assigned')) {
                 $q->whereHas('process', function ($p) use ($user) {
                     $p->where('abogado_lider_id', $user->id)
-                      ->orWhere('apoderado_id', $user->id)
-                      ->orWhere('coordinador_id', $user->id);
+                        ->orWhere('apoderado_id', $user->id)
+                        ->orWhere('coordinador_id', $user->id);
                 });
             }
 

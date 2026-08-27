@@ -3,7 +3,6 @@
 namespace Tests\Unit\Services;
 
 use App\Models\Client;
-use App\Models\Comment;
 use App\Models\Document;
 use App\Models\EmailIngestion;
 use App\Models\Process;

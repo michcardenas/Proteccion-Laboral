@@ -201,6 +201,10 @@ class AiService
         $parsed['request_hash'] = $response['request_hash'];
         $parsed['latencia_ms'] = $response['latencia_ms'];
 
+        // Quien llama necesita el modelo para tarificar la llamada: el de la
+        // respuesta, no el de la config, que puede haber cambiado desde.
+        $parsed['model'] = $response['model'] ?? null;
+
         return $parsed;
     }
 

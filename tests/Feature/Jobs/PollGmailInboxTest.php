@@ -5,6 +5,8 @@ namespace Tests\Feature\Jobs;
 use App\Jobs\PollGmailInbox;
 use App\Jobs\ProcessInboundEmail;
 use App\Models\EmailIngestion;
+use App\Models\IntegrationToken;
+use App\Models\User;
 use App\Services\GmailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -15,6 +17,20 @@ use Tests\TestCase;
 class PollGmailInboxTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** El sondeo recorre las cuentas conectadas: sin ninguna, no hay nada que sondear. */
+    protected function cuentaConectada(?string $email = null): IntegrationToken
+    {
+        return IntegrationToken::create([
+            'provider' => IntegrationToken::PROVIDER_GMAIL,
+            'account_email' => $email ?? 'bandeja-'.uniqid().'@proteccionlaboral.co',
+            'access_token' => 'at',
+            'refresh_token' => 'rt',
+            'expires_at' => now()->addHour(),
+            'scopes' => ['https://www.googleapis.com/auth/gmail.modify'],
+            'connected_by_user_id' => User::factory()->create()->id,
+        ]);
+    }
 
     protected function fakeMessage(string $id): array
     {
@@ -46,7 +62,10 @@ class PollGmailInboxTest extends TestCase
             'status' => EmailIngestion::STATUS_PROCESSED,
         ]);
 
+        $this->cuentaConectada();
+
         $gmail = Mockery::mock(GmailService::class);
+        $gmail->shouldReceive('paraCuenta')->andReturnSelf();
         $gmail->shouldReceive('fetchUnread')->once()->andReturn([
             $this->fakeMessage('existing'),
             $this->fakeMessage('new-1'),
@@ -71,7 +90,10 @@ class PollGmailInboxTest extends TestCase
     {
         Bus::fake();
 
+        $this->cuentaConectada();
+
         $gmail = Mockery::mock(GmailService::class);
+        $gmail->shouldReceive('paraCuenta')->andReturnSelf();
         $gmail->shouldReceive('fetchUnread')
             ->andThrow(new RuntimeException('No hay una cuenta de Gmail conectada.'));
 
@@ -79,5 +101,38 @@ class PollGmailInboxTest extends TestCase
 
         $this->assertDatabaseCount('email_ingestions', 0);
         Bus::assertNothingDispatched();
+    }
+
+    /**
+     * Un token caducado en una cuenta no puede dejar sin correo a las demas.
+     *
+     * Con una sola bandeja daba igual: fallaba y no habia mas. Con una cuenta
+     * por abogada, tratarlas en bloque significa que la que se revoque el
+     * acceso deja al despacho entero sin ingesta, y en silencio.
+     */
+    public function test_una_cuenta_rota_no_impide_sondear_las_demas(): void
+    {
+        Bus::fake();
+
+        $rota = $this->cuentaConectada();
+        $buena = $this->cuentaConectada();
+
+        $gmail = Mockery::mock(GmailService::class);
+        $gmail->shouldReceive('paraCuenta')->andReturnSelf();
+        $gmail->shouldReceive('fetchUnread')
+            ->once()
+            ->ordered()
+            ->andThrow(new RuntimeException('token revocado'));
+        $gmail->shouldReceive('fetchUnread')
+            ->once()
+            ->ordered()
+            ->andReturn([$this->fakeMessage('de-la-buena')]);
+
+        (new PollGmailInbox)->handle($gmail);
+
+        $this->assertDatabaseHas('email_ingestions', [
+            'message_id' => 'de-la-buena',
+            'integration_token_id' => $buena->id,
+        ]);
     }
 }

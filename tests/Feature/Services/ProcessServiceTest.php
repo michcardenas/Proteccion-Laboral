@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Services;
 
-use App\Models\ChecklistResponse;
 use App\Models\Client;
+use App\Models\Process;
 use App\Models\ServiceType;
 use App\Services\ProcessService;
 use Database\Seeders\ServiceTypeSeeder;
@@ -25,7 +25,7 @@ class ProcessServiceTest extends TestCase
         return ServiceType::where('modalidad', 'diagnostico_implementacion')->firstOrFail();
     }
 
-    private function createProcess(): \App\Models\Process
+    private function createProcess(): Process
     {
         $client = Client::factory()->create();
 

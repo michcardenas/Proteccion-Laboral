@@ -12,7 +12,6 @@ use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -26,8 +25,7 @@ class ProcessEmailController extends Controller
         private readonly AiService $ai,
         private readonly GmailService $gmail,
         private readonly ProcessContextBuilder $context,
-    ) {
-    }
+    ) {}
 
     /**
      * POST /admin/processes/{process}/emails/{ingestion}/draft
@@ -102,8 +100,15 @@ class ProcessEmailController extends Controller
 
         $payload = $ingestion->raw_payload ?? [];
 
+        // Se responde DESDE la cuenta que recibio el correo. Enviar siempre
+        // desde la ultima conectada hacia salir la respuesta de una abogada
+        // con el remitente de otra.
+        $gmail = $ingestion->integrationToken
+            ? $this->gmail->paraCuenta($ingestion->integrationToken)
+            : $this->gmail;
+
         try {
-            $sentId = $this->gmail->sendReply([
+            $sentId = $gmail->sendReply([
                 'to' => $to,
                 'subject' => $data['subject'],
                 'body' => $data['body'],

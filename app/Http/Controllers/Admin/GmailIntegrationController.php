@@ -13,9 +13,7 @@ use Throwable;
 
 class GmailIntegrationController extends Controller
 {
-    public function __construct(private readonly GmailService $gmail)
-    {
-    }
+    public function __construct(private readonly GmailService $gmail) {}
 
     /**
      * GET /admin/integrations/gmail/connect

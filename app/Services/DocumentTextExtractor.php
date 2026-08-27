@@ -107,7 +107,7 @@ class DocumentTextExtractor
 
     private function fromPdf(string $path): string
     {
-        return (new PdfParser())->parseFile($path)->getText();
+        return (new PdfParser)->parseFile($path)->getText();
     }
 
     /**
@@ -116,7 +116,7 @@ class DocumentTextExtractor
      */
     private function fromDocx(string $path): string
     {
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($path) !== true) {
             throw new RuntimeException('No se pudo abrir el archivo .docx.');
         }

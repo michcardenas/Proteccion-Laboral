@@ -23,9 +23,7 @@ use Inertia\Response;
  */
 class EmailReviewController extends Controller
 {
-    public function __construct(private readonly EmailRouter $router)
-    {
-    }
+    public function __construct(private readonly EmailRouter $router) {}
 
     /**
      * GET /admin/emails/review
@@ -38,6 +36,7 @@ class EmailReviewController extends Controller
         $accion = trim((string) $request->string('accion'));
 
         $query = EmailIngestion::query()
+            ->visiblePara($request->user())
             ->where('status', EmailIngestion::STATUS_NEEDS_REVIEW)
             ->orderByDesc('received_at');
 
@@ -57,6 +56,7 @@ class EmailReviewController extends Controller
 
         // Acciones presentes entre los pendientes, para el filtro.
         $acciones = EmailIngestion::query()
+            ->visiblePara($request->user())
             ->where('status', EmailIngestion::STATUS_NEEDS_REVIEW)
             ->get(['ai_classification'])
             ->map(fn (EmailIngestion $e) => $e->ai_classification['action'] ?? null)
@@ -92,6 +92,7 @@ class EmailReviewController extends Controller
     public function assign(Request $request, EmailIngestion $ingestion): RedirectResponse
     {
         abort_unless($request->user()?->can('emails.review'), 403);
+        abort_unless($ingestion->loPuedeVer($request->user()), 403, 'Ese correo no es de tu bandeja.');
         abort_unless($ingestion->status === EmailIngestion::STATUS_NEEDS_REVIEW, 422, 'El correo ya no está en revisión.');
 
         $data = $request->validate([
@@ -117,6 +118,7 @@ class EmailReviewController extends Controller
     public function discard(Request $request, EmailIngestion $ingestion): RedirectResponse
     {
         abort_unless($request->user()?->can('emails.review'), 403);
+        abort_unless($ingestion->loPuedeVer($request->user()), 403, 'Ese correo no es de tu bandeja.');
         abort_unless($ingestion->status === EmailIngestion::STATUS_NEEDS_REVIEW, 422, 'El correo ya no está en revisión.');
 
         $ingestion->forceFill([

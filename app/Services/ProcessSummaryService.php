@@ -7,9 +7,7 @@ use Illuminate\Support\Str;
 
 class ProcessSummaryService
 {
-    public function __construct(private readonly AiService $ai)
-    {
-    }
+    public function __construct(private readonly AiService $ai) {}
 
     /**
      * Genera el resumen ejecutivo del proceso con IA y lo persiste en
