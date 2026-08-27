@@ -13,5 +13,17 @@ return [
         'https://www.googleapis.com/auth/drive.readonly',
     ],
     'access_type' => 'offline',
-    'prompt' => 'consent',
+
+    /*
+     * `consent` a secas fuerza la pantalla de permisos pero NO la de elegir
+     * cuenta: si el navegador ya tiene sesión con una cuenta de Google, la
+     * reautoriza esa misma sin preguntar. En producción quedó conectado un
+     * Gmail personal por eso — la pantalla no daba forma de cambiarlo, y
+     * desconectar y volver a conectar reconectaba la misma cuenta.
+     *
+     * Con `select_account` delante, Google muestra siempre el selector. Es un
+     * clic de más para quien ya tiene la cuenta correcta, y la única forma de
+     * cambiarla para quien no.
+     */
+    'prompt' => 'select_account consent',
 ];
