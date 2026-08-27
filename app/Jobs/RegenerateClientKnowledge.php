@@ -82,8 +82,10 @@ class RegenerateClientKnowledge implements ShouldBeUnique, ShouldQueue
      */
     protected function resumirPendientes(Client $client, DocumentSummarizer $summarizer): void
     {
+        // Sin filtrar por proceso: la ficha ve todo el material del cliente
+        // (ver Client::documentosCliente), asi que hay que resumirlo todo o los
+        // documentos atados a un asunto entrarian con su texto crudo.
         Document::where('client_id', $client->id)
-            ->whereNull('process_id')
             ->whereNotNull('texto_extraido')
             ->where('texto_extraido', '!=', '')
             ->where(function ($q) {

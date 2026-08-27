@@ -86,8 +86,16 @@ class RegenerateClientKnowledgeTest extends TestCase
         $this->correr($client, $summarizer);
     }
 
-    /** La ficha solo mira los documentos de nivel cliente; resumir los de proceso sería gasto inútil. */
-    public function test_ignora_los_documentos_atados_a_un_proceso(): void
+    /**
+     * Los documentos atados a un asunto TAMBIÉN se resumen.
+     *
+     * Antes se saltaban, porque la ficha solo miraba los de nivel cliente. Al
+     * espejar Drive eso deja de valer: la estructura real es
+     * `cliente / asunto / archivos` —ELIAS ACOSTA tiene 52 carpetas—, así que
+     * casi todo el material del despacho acaba colgando de un proceso. Con el
+     * filtro puesto, la ficha se habría quedado vacía justo al migrar.
+     */
+    public function test_tambien_resume_los_documentos_atados_a_un_proceso(): void
     {
         $client = Client::factory()->create();
 
@@ -106,7 +114,7 @@ class RegenerateClientKnowledgeTest extends TestCase
         $this->documento($client, ['process_id' => $proceso->id]);
 
         $summarizer = Mockery::mock(DocumentSummarizer::class);
-        $summarizer->shouldNotReceive('summarize');
+        $summarizer->shouldReceive('summarize')->once();
 
         $this->correr($client, $summarizer);
     }

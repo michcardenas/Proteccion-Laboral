@@ -14,7 +14,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 // por eso extiende Authenticatable en vez de Model.
 class Client extends Authenticatable
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'razon_social',
@@ -85,12 +85,22 @@ class Client extends Authenticatable
     }
 
     /**
-     * Documentos subidos a nivel del cliente (pestaña "Documentos"): sin proceso.
-     * Son la base de la ficha de conocimiento generada por IA.
+     * TODOS los documentos del cliente, estén o no atados a un proceso.
+     *
+     * Filtraba por `process_id IS NULL` porque cuando se escribió la ficha era
+     * lo único que existía y no había contexto por proceso. Al empezar a
+     * espejar Drive eso se volvió una trampa: la estructura real del despacho
+     * es `cliente / asunto / archivos` —ELIAS ACOSTA tiene 52 carpetas—, así
+     * que en cuanto esos documentos se aten a su proceso, con el filtro la
+     * ficha del cliente se habría quedado VACÍA sin que nadie lo notara.
+     *
+     * La ficha da la panorámica del cliente y `ProcessContextBuilder` da el
+     * detalle del asunto concreto. Son dos vistas del mismo material, no dos
+     * conjuntos distintos.
      */
     public function documentosCliente(): HasMany
     {
-        return $this->hasMany(Document::class)->whereNull('process_id');
+        return $this->hasMany(Document::class);
     }
 
     /**
@@ -131,8 +141,8 @@ class Client extends Authenticatable
         return $this->processes()
             ->where(function ($q) {
                 $q->whereNotNull('abogado_lider_id')
-                  ->orWhereNotNull('apoderado_id')
-                  ->orWhereNotNull('coordinador_id');
+                    ->orWhereNotNull('apoderado_id')
+                    ->orWhereNotNull('coordinador_id');
             })
             ->exists();
     }
