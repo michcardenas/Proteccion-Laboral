@@ -48,10 +48,16 @@ const stagesPreview = computed(() => selectedService.value?.stage_templates ?? s
                     </select>
                 </FormField>
 
-                <FormField label="Servicio" :error="form.errors.service_type_id" required :hint="isEdit ? 'No editable después de creado' : 'Define las etapas y checklist iniciales'">
+                <FormField
+                    label="Servicio"
+                    :error="form.errors.service_type_id"
+                    required
+                    :hint="isEdit
+                        ? 'Puedes corregirlo. El plan de etapas ya creado no cambia.'
+                        : 'Define las etapas y checklist iniciales'"
+                >
                     <select
                         v-model="form.service_type_id"
-                        :disabled="isEdit"
                         class="w-full rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900 disabled:bg-brand-50"
                     >
                         <option value="">— Selecciona servicio —</option>

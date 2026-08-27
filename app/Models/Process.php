@@ -13,7 +13,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Process extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'contract_id',
@@ -24,6 +24,7 @@ class Process extends Model
         'coordinador_id',
         'codigo',
         'titulo',
+        'drive_folder',
         'descripcion',
         'resumen_ia',
         'resumen_ia_generado_at',

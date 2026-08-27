@@ -17,6 +17,15 @@ class UpdateProcessRequest extends FormRequest
         $processId = $this->route('process')?->id;
 
         return [
+            // El servicio se podía elegir al crear y quedaba congelado, porque
+            // define las etapas que se clonan en ese momento. Eso dejaba de
+            // valer al importar los asuntos de Drive: entran con un servicio
+            // genérico —el único que no miente para todos— y hay que poder
+            // corregirlos uno a uno sin borrar y volver a crear.
+            //
+            // Cambiarlo NO reescribe las etapas ya creadas: son filas propias
+            // del proceso desde que se clonaron. La pantalla lo advierte.
+            'service_type_id' => ['required', 'exists:service_types,id'],
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'codigo' => ['required', 'string', 'max:40', Rule::unique('processes', 'codigo')->ignore($processId)],
             'titulo' => ['required', 'string', 'max:200'],
