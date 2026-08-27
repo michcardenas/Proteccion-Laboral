@@ -5,6 +5,8 @@ namespace Tests\Feature\Services;
 use App\Jobs\RegenerateClientKnowledge;
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\Process;
+use App\Models\ServiceType;
 use App\Services\DocumentTextExtractor;
 use App\Services\DriveKnowledgeSync;
 use App\Services\DriveService;
@@ -59,13 +61,13 @@ class DriveKnowledgeSyncTest extends TestCase
      */
     protected function sync(array $archivos, array $contenidos = []): DriveKnowledgeSync
     {
-        $drive = Mockery::mock(DriveService::class, [new GmailService()])->makePartial();
+        $drive = Mockery::mock(DriveService::class, [new GmailService])->makePartial();
         $drive->shouldReceive('listFilesRecursive')->andReturn($archivos);
         $drive->shouldReceive('downloadFile')->andReturnUsing(
             fn (array $file) => $contenidos[$file['id']] ?? null
         );
 
-        return new DriveKnowledgeSync($drive, new DocumentTextExtractor());
+        return new DriveKnowledgeSync($drive, new DocumentTextExtractor);
     }
 
     protected function cliente(): Client
@@ -95,7 +97,6 @@ class DriveKnowledgeSyncTest extends TestCase
         Storage::disk('local')->assertExists($doc->ruta);
     }
 
-
     public function test_el_texto_queda_cacheado_y_no_se_reintenta(): void
     {
         $client = $this->cliente();
@@ -108,7 +109,7 @@ class DriveKnowledgeSyncTest extends TestCase
         // texto por obsoleto y volvería a leer el archivo en cada generación.
         $this->assertNotNull($doc->texto_extraido_at);
         $this->assertTrue($doc->texto_extraido_at->greaterThanOrEqualTo($doc->updated_at));
-        $this->assertSame('contenido legible', (new DocumentTextExtractor())->extractFromDocument($doc->fresh()));
+        $this->assertSame('contenido legible', (new DocumentTextExtractor)->extractFromDocument($doc->fresh()));
     }
 
     public function test_no_vuelve_a_descargar_lo_que_no_cambio_en_drive(): void
@@ -242,5 +243,46 @@ class DriveKnowledgeSyncTest extends TestCase
         $this->expectException(\RuntimeException::class);
 
         $this->sync([])->syncClient($client);
+    }
+
+    /**
+     * Lo que hace que el contexto se mantenga solo: un archivo que aparece en la
+     * carpeta de un proceso se ata a ese proceso sin que nadie se lo diga.
+     */
+    public function test_ata_el_documento_al_proceso_de_su_carpeta(): void
+    {
+        $client = $this->cliente();
+        $servicio = ServiceType::create([
+            'nombre' => 'Asesoria', 'slug' => 'asesoria', 'modalidad' => 'judicial', 'es_activo' => true,
+        ]);
+        $proceso = Process::create([
+            'client_id' => $client->id,
+            'service_type_id' => $servicio->id,
+            'codigo' => 'PL-CARPETA-1',
+            'titulo' => '16 COMPRAVENTA GARCES',
+            'drive_folder' => '16 COMPRAVENTA GARCES',
+            'estado' => 'en_curso',
+            'fecha_apertura' => now()->toDateString(),
+        ]);
+
+        $this->sync(
+            [$this->archivo(['id' => 'f1', 'name' => 'escritura.txt', 'path' => '16 COMPRAVENTA GARCES/ESCRITURA 4300'])],
+            ['f1' => 'texto de la escritura'],
+        )->syncClient($client);
+
+        $this->assertSame($proceso->id, Document::where('drive_file_id', 'f1')->firstOrFail()->process_id);
+    }
+
+    /** Un archivo de una carpeta que nadie convirtio en proceso se queda del cliente. */
+    public function test_sin_proceso_para_esa_carpeta_el_documento_queda_del_cliente(): void
+    {
+        $client = $this->cliente();
+
+        $this->sync(
+            [$this->archivo(['id' => 'f1', 'name' => 'suelto.txt', 'path' => 'CARPETA SIN PROCESO'])],
+            ['f1' => 'contenido'],
+        )->syncClient($client);
+
+        $this->assertNull(Document::where('drive_file_id', 'f1')->firstOrFail()->process_id);
     }
 }

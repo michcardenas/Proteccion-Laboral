@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\RegenerateClientKnowledge;
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -35,11 +36,17 @@ class DriveKnowledgeSync
         'soporte' => ['factura', 'soporte', 'pago', 'comprobante', 'planilla', 'certificado'],
     ];
 
+    /**
+     * Procesos por carpeta, cacheados por cliente.
+     *
+     * @var array<int,array<string,int>>
+     */
+    protected array $procesosPorCarpeta = [];
+
     public function __construct(
         protected readonly DriveService $drive,
         protected readonly DocumentTextExtractor $extractor,
-    ) {
-    }
+    ) {}
 
     /**
      * Sincroniza la carpeta de Drive de un cliente.
@@ -111,6 +118,34 @@ class DriveKnowledgeSync
     }
 
     /**
+     * El proceso cuya carpeta de Drive contiene este archivo, si lo hay.
+     *
+     * Empareja por el PRIMER tramo de la ruta —«16 COMPRAVENTA GARCES/
+     * ESCRITURA…/1.jpeg» pertenece a la carpeta «16 COMPRAVENTA GARCES»— contra
+     * `processes.drive_folder`. Un archivo suelto en la raíz del cliente, o de
+     * una carpeta que nadie convirtió en proceso, se queda sin proceso y sigue
+     * alimentando la ficha del cliente como hasta ahora.
+     *
+     * Se cachea por cliente: el sync recorre cientos de archivos y esto sería
+     * una consulta por cada uno.
+     */
+    protected function procesoDeLaCarpeta(Client $client, string $nombreConRuta): ?int
+    {
+        $partes = explode('/', $nombreConRuta);
+        if (count($partes) < 2) {
+            return null;
+        }
+
+        $this->procesosPorCarpeta[$client->id] ??= Process::query()
+            ->where('client_id', $client->id)
+            ->whereNotNull('drive_folder')
+            ->pluck('id', 'drive_folder')
+            ->all();
+
+        return $this->procesosPorCarpeta[$client->id][trim($partes[0])] ?? null;
+    }
+
+    /**
      * Crea o actualiza el Document correspondiente a un archivo de Drive.
      *
      * @return array{estado: string, sin_texto: bool}
@@ -163,9 +198,16 @@ class DriveKnowledgeSync
             }
         }
 
+        $nombreConRuta = $this->nombreConRuta($archivo);
+
         $atributos = [
             'client_id' => $client->id,
-            'nombre' => $this->nombreConRuta($archivo),
+            // Ata el archivo al proceso de su carpeta. Es lo que hace que el
+            // contexto se mantenga solo: quien suelta un documento en
+            // «16 COMPRAVENTA GARCES» no tiene que decirle a nadie de qué
+            // asunto es — la carpeta ya lo dice.
+            'process_id' => $this->procesoDeLaCarpeta($client, $nombreConRuta),
+            'nombre' => $nombreConRuta,
             'ruta' => $ruta,
             'disco' => $disco,
             'tipo' => $this->adivinarTipo($archivo['name']),
