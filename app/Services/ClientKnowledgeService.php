@@ -72,6 +72,22 @@ class ClientKnowledgeService
      */
     public const MAX_TOKENS_FICHA = 8000;
 
+    /**
+     * Segundos de espera para la generación de la ficha.
+     *
+     * El timeout general (150 s) está pensado para redacciones cortas y se
+     * quedó chico en cuanto la cobertura subió: MELENDEZ, con 87.000 caracteres
+     * de entrada, tardó 78 s; ELIAS ACOSTA, con 167.000, se pasó de 150 y la
+     * ficha del cliente más grande del despacho quedó vacía. El fallo era
+     * silencioso —`build()` devuelve false y sigue— así que se veía como «ese
+     * cliente no tiene ficha», no como un error.
+     *
+     * Esto es trabajo de fondo, no una petición web: puede permitirse esperar.
+     * Con `QUEUE_CONNECTION=sync` sí corre dentro de la petición, y eso es un
+     * problema de despliegue que hay que resolver aparte.
+     */
+    public const SEGUNDOS_FICHA = 420;
+
     public function __construct(
         private readonly DocumentTextExtractor $extractor,
         private readonly AiService $ai,
@@ -106,6 +122,7 @@ class ClientKnowledgeService
             $response = $this->ai->generateDraft($prompt, null, [
                 'temperature' => 0.2,
                 'max_tokens' => self::MAX_TOKENS_FICHA,
+                'timeout' => self::SEGUNDOS_FICHA,
             ]);
 
             $client->forceFill([
