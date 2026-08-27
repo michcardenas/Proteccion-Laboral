@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\ServiceType;
+use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -58,6 +60,7 @@ class DriveProponerProcesos extends Command
                     'documentos' => $datos['docs'],
                     'con_texto' => $datos['con_texto'],
                     'desde' => $datos['desde'],
+                    'abogada' => $this->abogadaDe($client)?->name ?? '(sin identificar)',
                     'codigo_sugerido' => $this->codigo($client, $carpeta),
                     'servicio' => '',           // lo rellena el despacho
                     'crear' => '',              // SI / NO, lo marca el despacho
@@ -76,12 +79,12 @@ class DriveProponerProcesos extends Command
             $this->info('Propuesta escrita en '.$ruta.' — '.count($filas).' carpetas.');
         } else {
             $this->table(
-                ['Cliente', 'Carpeta', 'Docs', 'Con texto', 'Desde'],
+                ['Cliente', 'Abogada', 'Carpeta', 'Docs', 'Desde'],
                 array_map(fn ($f) => [
-                    Str::limit($f['cliente'], 24),
-                    Str::limit($f['carpeta'], 40),
+                    Str::limit($f['cliente'], 22),
+                    Str::limit($f['abogada'], 22),
+                    Str::limit($f['carpeta'], 34),
                     $f['documentos'],
-                    $f['con_texto'],
                     $f['desde'],
                 ], array_slice($filas, 0, 40))
             );
@@ -147,6 +150,52 @@ class DriveProponerProcesos extends Command
 
         return $carpetas;
     }
+
+    /**
+     * La abogada responsable, deducida de la carpeta de Drive.
+     *
+     * La estructura del despacho es `<abogada> / <empresa> / <asunto>`, y el
+     * mapeo guarda los dos primeros tramos en `drive_folder_name`
+     * («DRA CAROLINA / 3 ELIAS ACOSTA»). Drive YA sabe quién lleva cada
+     * cliente: no hace falta preguntarlo.
+     *
+     * Se compara por palabras y sin tildes, porque la carpeta usa el nombre
+     * corto («DRA CAROLINA») y el sistema el completo («María Carolina Ramos
+     * Sepúlveda»). Se descartan los tratamientos y se exigen DOS coincidencias
+     * cuando el nombre de la carpeta las permite, para que un «DRA» suelto no
+     * empareje con cualquiera.
+     */
+    protected function abogadaDe(Client $client): ?User
+    {
+        $carpeta = (string) $client->drive_folder_name;
+        if (! str_contains($carpeta, '/')) {
+            return null;
+        }
+
+        $palabras = fn (string $t) => collect(preg_split('/[^\p{L}]+/u', Str::ascii(Str::lower($t))))
+            ->filter(fn ($p) => mb_strlen($p) >= 3 && ! in_array($p, ['dra', 'dro', 'abg', 'del', 'las', 'los'], true))
+            ->values();
+
+        $deLaCarpeta = $palabras(explode('/', $carpeta)[0]);
+        if ($deLaCarpeta->isEmpty()) {
+            return null;
+        }
+
+        $exigidas = min(2, $deLaCarpeta->count());
+
+        return $this->usuarios()->first(
+            fn (User $u) => $deLaCarpeta->intersect($palabras((string) $u->name))->count() >= $exigidas
+        );
+    }
+
+    /** @return Collection<int,User> */
+    protected function usuarios(): Collection
+    {
+        return $this->usuarios ??= User::query()->get();
+    }
+
+    /** @var Collection<int,User>|null */
+    protected ?Collection $usuarios = null;
 
     /** Código propuesto, único y reconocible como venido de Drive. */
     protected function codigo(Client $client, string $carpeta): string
