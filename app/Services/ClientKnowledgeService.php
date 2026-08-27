@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\AiGeneration;
 use App\Models\Client;
-use App\Models\Document;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -22,20 +21,55 @@ use Throwable;
  */
 class ClientKnowledgeService
 {
-    /** Máximo de documentos a considerar para la ficha (los más recientes). */
-    public const MAX_DOCS = 30;
+    /**
+     * Máximo de documentos a considerar para la ficha (los más recientes).
+     *
+     * Deliberadamente alto: quien manda es el presupuesto de caracteres. Medido
+     * con clientes reales, este tope NUNCA llegaba a activarse —Melendez entró
+     * con 12 documentos de 96 y Primavera con 8 de 11— porque el texto se
+     * acababa mucho antes. Subir este número solo, como parecía la solución
+     * obvia, no habría cambiado ni un documento.
+     */
+    public const MAX_DOCS = 120;
 
-    /** Máximo de caracteres del texto extraído por documento. */
-    public const MAX_TEXTO_DOC = 12000;
+    /**
+     * Máximo de caracteres del texto extraído por documento.
+     *
+     * Estaba en 12.000 y era el verdadero cuello de botella: un documento legal
+     * promedia ~11.000 caracteres, así que uno solo se comía el 13% del
+     * presupuesto y la ficha se quedaba sin espacio al octavo. Para una ficha
+     * —quién es el cliente, qué obligaciones tiene, qué falta— importa más ver
+     * el encabezado de cincuenta documentos que el texto íntegro de doce: las
+     * partes, las fechas y el objeto están al principio.
+     *
+     * Es un intercambio, no una mejora gratis: se pierde el detalle del final
+     * de cada documento. Para leer uno a fondo está el informe del cliente.
+     */
+    public const MAX_TEXTO_DOC = 4000;
 
     /** Presupuesto total de texto de entrada (todos los docs concatenados). */
-    public const MAX_TEXTO_TOTAL = 90000;
+    public const MAX_TEXTO_TOTAL = 200000;
+
+    /**
+     * Espacio de SALIDA para la ficha.
+     *
+     * Sin esto se usaba el `max_tokens` general (4.096 ≈ 10.000 caracteres) y
+     * era un techo invisible: las tres versiones de la ficha de MELENDEZ
+     * midieron 9.146, 9.966 y 9.114 caracteres, todas pegadas al límite. Al
+     * subir la cobertura de 12 a 97 documentos la ficha no creció — comprimió,
+     * y en esa compresión perdió el SGSST y el Comité de Convivencia, que sí
+     * estaban en la versión anterior.
+     *
+     * Más material de entrada exige más sitio de salida; si no, ampliar la
+     * cobertura solo cambia qué se sacrifica. Se alinea con
+     * `ProcessContextBuilder::MAX_FICHA_CLIENTE`, que es donde acaba la ficha.
+     */
+    public const MAX_TOKENS_FICHA = 8000;
 
     public function __construct(
         private readonly DocumentTextExtractor $extractor,
         private readonly AiService $ai,
-    ) {
-    }
+    ) {}
 
     /**
      * (Re)genera la ficha de conocimiento del cliente y la persiste.
@@ -63,7 +97,10 @@ class ClientKnowledgeService
         $prompt = $this->renderPrompt($client, $texto);
 
         try {
-            $response = $this->ai->generateDraft($prompt, null, ['temperature' => 0.2]);
+            $response = $this->ai->generateDraft($prompt, null, [
+                'temperature' => 0.2,
+                'max_tokens' => self::MAX_TOKENS_FICHA,
+            ]);
 
             $client->forceFill([
                 'resumen_documental' => trim($response['text']),
@@ -99,7 +136,15 @@ class ClientKnowledgeService
         $usados = 0;
 
         foreach ($docs as $doc) {
-            $texto = $this->extractor->extractFromDocument($doc);
+            // El resumen manda sobre el texto crudo cuando existe. Es la
+            // diferencia entre que quepan doce documentos o los ciento
+            // cuarenta y ocho: un resumen ocupa ~900 caracteres y el texto
+            // completo ~11.000. Ver DocumentSummarizer.
+            $resumido = filled($doc->resumen_ia);
+            $texto = $resumido
+                ? $doc->resumen_ia
+                : $this->extractor->extractFromDocument($doc);
+
             if ($texto === null || trim($texto) === '') {
                 continue;
             }
@@ -113,9 +158,13 @@ class ClientKnowledgeService
                 break;
             }
 
+            // Se marca cuál viene resumido: si no, el modelo lee un extracto
+            // corto y no puede distinguir «el documento dice poco» de «solo
+            // estoy viendo su ficha de catálogo».
             $encabezado = '### '.($doc->nombre ?? 'documento')
                 .($doc->tipo ? ' ('.$doc->tipo.')' : '')
-                .($doc->created_at ? ' · '.$doc->created_at->format('Y-m-d') : '');
+                .($doc->created_at ? ' · '.$doc->created_at->format('Y-m-d') : '')
+                .($resumido ? ' · [resumen]' : '');
             $bloques[] = $encabezado."\n".$texto;
 
             $total += mb_strlen($texto);

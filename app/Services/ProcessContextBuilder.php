@@ -38,12 +38,20 @@ class ProcessContextBuilder
     /** Máximo de caracteres del texto extraído por documento. */
     public const MAX_TEXTO_DOC = 3000;
 
-    /** Máximo de caracteres de la ficha de conocimiento del cliente inyectada. */
-    public const MAX_FICHA_CLIENTE = 8000;
+    /**
+     * Máximo de caracteres de la ficha de conocimiento del cliente inyectada.
+     *
+     * Estaba en 8.000 y cortaba fichas reales: la de Melendez mide 9.146. Lo
+     * que se perdía no era relleno — el modelo escribe las salvedades al final,
+     * así que el recorte se llevaba justo el inventario de «[FALTA: …]» y el
+     * riesgo de la sucesión ilíquida, que es lo que un abogado necesita leer.
+     *
+     * Recortar aquí un resumen que costó cincuenta documentos y una llamada a
+     * la API es tirar el trabajo en el último metro.
+     */
+    public const MAX_FICHA_CLIENTE = 20000;
 
-    public function __construct(private readonly DocumentTextExtractor $extractor)
-    {
-    }
+    public function __construct(private readonly DocumentTextExtractor $extractor) {}
 
     public function build(Process $process): string
     {

@@ -31,6 +31,8 @@ class Document extends Model
         'visible_cliente',
         'texto_extraido',
         'texto_extraido_at',
+        'resumen_ia',
+        'resumen_ia_at',
         'drive_file_id',
         'drive_modified_at',
     ];
@@ -39,6 +41,7 @@ class Document extends Model
         'generado_por_ia' => 'boolean',
         'visible_cliente' => 'boolean',
         'texto_extraido_at' => 'datetime',
+        'resumen_ia_at' => 'datetime',
         'drive_modified_at' => 'datetime',
     ];
 
