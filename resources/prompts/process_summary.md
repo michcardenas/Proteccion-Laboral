@@ -39,11 +39,19 @@ El resumen es del **proceso como tal** (la situación legal del cliente), NO de 
 {{comentarios}}
 ```
 
+## Expediente completo
+
+Ficha del cliente, documentos del caso, correos y actividad. Es la fuente para
+decir de qué trata el caso de verdad; lo de arriba solo dice cómo va su gestión.
+
+{{expediente_contexto}}
+
 ## Instrucciones
 
 Redacta el resumen en **español**, en tono profesional y conciso, con esta estructura (usa estos mismos encabezados en negrita):
 
-**Situación.** Qué es el caso y para qué cliente, en 1–2 frases.
+**Situación.** Qué es el caso y para qué cliente, en 1–2 frases. Apóyate en el
+expediente y en la ficha del cliente, no solo en el título del proceso.
 
 **Estado actual.** En qué etapa va el proceso y el avance general (qué se ha completado, qué está en curso).
 

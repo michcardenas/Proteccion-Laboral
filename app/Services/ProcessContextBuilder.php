@@ -32,8 +32,16 @@ class ProcessContextBuilder
     /** Máximo de caracteres por fragmento de texto largo (comentarios, correos, borradores). */
     public const MAX_TEXTO = 600;
 
-    /** Cuántos documentos/adjuntos incluir con su TEXTO extraído (no solo el nombre). */
-    public const MAX_DOCS_TEXTO = 8;
+    /**
+     * Cuántos documentos/adjuntos incluir con su contenido (no solo el nombre).
+     *
+     * Eran 8 cuando lo único disponible era el texto crudo, que se come el
+     * presupuesto del prompt en tres documentos largos. Con el resumen por
+     * documento ya generado cabe el triple en el mismo espacio, y ver treinta
+     * documentos por encima explica un expediente mucho mejor que ver ocho por
+     * el principio.
+     */
+    public const MAX_DOCS_TEXTO = 24;
 
     /** Máximo de caracteres del texto extraído por documento. */
     public const MAX_TEXTO_DOC = 3000;
@@ -273,7 +281,12 @@ class ProcessContextBuilder
                 break;
             }
 
-            $texto = $this->extractor->extractFromDocument($doc);
+            // El resumen gana al texto crudo cuando existe: cubre el documento
+            // ENTERO en menos espacio, mientras que el texto se corta a los tres
+            // mil caracteres y de un contrato largo solo llega el encabezado.
+            $resumen = trim((string) $doc->resumen_ia);
+            $texto = $resumen !== '' ? $resumen : $this->extractor->extractFromDocument($doc);
+
             if ($texto === null || trim($texto) === '') {
                 continue;
             }
@@ -282,7 +295,8 @@ class ProcessContextBuilder
                 ? 'adjunto de correo'
                 : ($doc->process_id ? 'documento del proceso' : 'documento del cliente');
             $l[] = '#### '.($doc->nombre ?? 'documento').' ('.$origen
-                .($doc->created_at ? ' · '.$doc->created_at->format('Y-m-d') : '').')';
+                .($doc->created_at ? ' · '.$doc->created_at->format('Y-m-d') : '')
+                .($resumen !== '' ? ' · resumen' : '').')';
             $l[] = Str::limit(trim($texto), self::MAX_TEXTO_DOC);
             $l[] = '';
             $incluidos++;
