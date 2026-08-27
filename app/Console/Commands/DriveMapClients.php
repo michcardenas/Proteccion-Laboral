@@ -24,7 +24,8 @@ class DriveMapClients extends Command
         {--folder= : Carpeta raíz donde viven las carpetas por cliente}
         {--threshold=0.6 : Confianza mínima para proponer un emparejado}
         {--nivel=2 : A qué profundidad viven las carpetas de empresa (1 = hijas de la raíz)}
-        {--apply : Guarda los emparejados propuestos en los clientes}';
+        {--apply : Guarda los emparejados propuestos en los clientes}
+        {--crear-faltantes : Crea un cliente para cada carpeta sin coincidencia (requiere --apply)}';
 
     protected $description = 'Mapea las carpetas de la unidad compartida de Drive con los clientes';
 
@@ -65,6 +66,7 @@ class DriveMapClients extends Command
 
         $filas = [];
         $aplicados = 0;
+        $creados = 0;
 
         foreach ($carpetas as $carpeta) {
             $yaMapeado = $clientes->firstWhere('drive_folder_id', $carpeta['id']);
@@ -78,6 +80,32 @@ class DriveMapClients extends Command
             $sugerencia = $this->sugerirCliente($carpeta['name'], $clientes);
 
             if ($sugerencia === null || $sugerencia['score'] < $umbral) {
+                // Sin cliente al que emparejar. Con --crear-faltantes se crea
+                // uno a partir de la carpeta: en un despacho que lleva anos
+                // trabajando en Drive, la lista de carpetas ES la lista de
+                // clientes, y crearlos a mano son treinta y dos formularios.
+                //
+                // Se crea uno POR CARPETA aunque el nombre se repita entre
+                // abogadas (SUMITOR esta bajo dos): fusionarlos automaticamente
+                // dejaria una carpeta sin sincronizar y sus documentos
+                // invisibles, que es peor que un duplicado a la vista.
+                if ($this->option('crear-faltantes') && $this->option('apply')) {
+                    $cliente = Client::create([
+                        'razon_social' => $this->nombreDeCliente($carpeta['name']),
+                        'estado' => 'activo',
+                        'fecha_alta' => now()->toDateString(),
+                        'notas' => 'Creado desde la carpeta de Drive «'.($carpeta['ruta'] ?? '').'/'.$carpeta['name'].'». Falta NIT y datos de contacto.',
+                        'drive_folder_id' => $carpeta['id'],
+                        'drive_folder_name' => trim(($carpeta['ruta'] ?? '').' / '.$carpeta['name']),
+                    ]);
+                    $clientes->push($cliente);
+                    $creados++;
+
+                    $filas[] = [$carpeta['ruta'] ?? '', $carpeta['name'], $cliente->razon_social, '—', 'CLIENTE CREADO'];
+
+                    continue;
+                }
+
                 $filas[] = [$carpeta['ruta'] ?? '', $carpeta['name'], '—', '—', 'sin coincidencia'];
 
                 continue;
@@ -129,6 +157,22 @@ class DriveMapClients extends Command
      *
      * @return array<int, array>
      */
+    /**
+     * Nombre de cliente a partir del nombre de la carpeta.
+     *
+     * Las carpetas del despacho vienen numeradas para ordenarlas en Drive
+     * («2 BOLUGA», «16 COMPRAVENTA GARCES»). Ese numero es de la carpeta, no
+     * del cliente, asi que se quita. Lo demas se respeta tal cual: son nombres
+     * que el despacho reconoce, y adivinar razones sociales seria inventar.
+     */
+    protected function nombreDeCliente(string $carpeta): string
+    {
+        $limpio = preg_replace('/^\s*\d+\s*[-._)]?\s+/u', '', trim($carpeta));
+
+        // Si la carpeta era solo un numero, no hay nombre que rescatar.
+        return $limpio === '' ? trim($carpeta) : $limpio;
+    }
+
     protected function carpetasDeEmpresa(DriveService $drive, string $raizId, ?string $driveId, int $nivel, string $ruta = ''): array
     {
         $carpetas = $drive->listFolders($raizId, $driveId);
