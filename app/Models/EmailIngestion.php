@@ -11,10 +11,15 @@ class EmailIngestion extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_CLASSIFIED = 'classified';
+
     public const STATUS_PROCESSED = 'processed';
+
     public const STATUS_NEEDS_REVIEW = 'needs_review';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_DISCARDED = 'descartado';
 
     protected $fillable = [

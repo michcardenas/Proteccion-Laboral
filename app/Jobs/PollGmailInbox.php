@@ -14,9 +14,7 @@ class PollGmailInbox implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public int $maxResults = 50)
-    {
-    }
+    public function __construct(public int $maxResults = 50) {}
 
     public function handle(GmailService $gmail): void
     {

@@ -16,6 +16,7 @@ use Inertia\Response;
 class ContractController extends Controller
 {
     public const ESTADOS = ['borrador', 'activo', 'pausado', 'finalizado', 'cancelado'];
+
     public const MODALIDADES_PAGO = ['mensual', 'unico', 'por_etapa', 'por_hora'];
 
     public function index(Request $request): Response
@@ -28,7 +29,7 @@ class ContractController extends Controller
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('codigo', 'like', "%{$search}%")
-                  ->orWhereHas('client', fn ($c) => $c->where('razon_social', 'like', "%{$search}%"));
+                    ->orWhereHas('client', fn ($c) => $c->where('razon_social', 'like', "%{$search}%"));
             });
         }
 

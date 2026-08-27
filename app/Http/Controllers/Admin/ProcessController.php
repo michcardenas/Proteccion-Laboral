@@ -3,30 +3,31 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Admin\AiGenerationController;
 use App\Http\Requests\Admin\StoreProcessRequest;
 use App\Http\Requests\Admin\UpdateProcessRequest;
 use App\Models\Client;
 use App\Models\Contract;
+use App\Models\Payment;
 use App\Models\Process;
 use App\Models\ServiceType;
 use App\Models\Task;
 use App\Models\User;
+use App\Models\Visit;
 use App\Services\ProcessService;
 use App\Services\ProcessSummaryService;
-use Spatie\Activitylog\Models\Activity;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Activitylog\Models\Activity;
 
 class ProcessController extends Controller
 {
     public const ESTADOS = ['abierto', 'en_curso', 'en_revision', 'cerrado', 'archivado'];
 
-    public function __construct(private readonly ProcessService $processService)
-    {
-    }
+    public function __construct(private readonly ProcessService $processService) {}
 
     public function index(Request $request): Response
     {
@@ -46,16 +47,16 @@ class ProcessController extends Controller
         if (! $user->can('processes.view') && $user->can('processes.view_assigned')) {
             $query->where(function ($q) use ($user) {
                 $q->where('abogado_lider_id', $user->id)
-                  ->orWhere('apoderado_id', $user->id)
-                  ->orWhere('coordinador_id', $user->id);
+                    ->orWhere('apoderado_id', $user->id)
+                    ->orWhere('coordinador_id', $user->id);
             });
         }
 
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('codigo', 'like', "%{$search}%")
-                  ->orWhere('titulo', 'like', "%{$search}%")
-                  ->orWhereHas('client', fn ($c) => $c->where('razon_social', 'like', "%{$search}%"));
+                    ->orWhere('titulo', 'like', "%{$search}%")
+                    ->orWhereHas('client', fn ($c) => $c->where('razon_social', 'like', "%{$search}%"));
             });
         }
 
@@ -289,7 +290,7 @@ class ProcessController extends Controller
                     'from' => $e->from,
                     'to' => $e->to,
                     'subject' => $e->subject,
-                    'body_preview' => \Illuminate\Support\Str::limit($e->body_text ?? '', 280),
+                    'body_preview' => Str::limit($e->body_text ?? '', 280),
                     'body_text' => $e->body_text,
                     'status' => $e->status,
                     'received_at' => $e->received_at?->toIso8601String(),
@@ -333,8 +334,8 @@ class ProcessController extends Controller
             ],
             'aiTemplates' => AiGenerationController::ALLOWED_TEMPLATES,
             'staff' => $this->staffOptions(),
-            'visitTipos' => \App\Models\Visit::TIPOS,
-            'paymentMetodos' => \App\Models\Payment::METODOS,
+            'visitTipos' => Visit::TIPOS,
+            'paymentMetodos' => Payment::METODOS,
         ]);
     }
 
@@ -439,7 +440,7 @@ class ProcessController extends Controller
      * pipeline de correos entrantes (ver EmailRouter::handleNuevoCaso); este
      * endpoint cubre los procesos creados a mano o cuando se quiere refrescar.
      */
-    public function generateSummary(Request $request, Process $process, ProcessSummaryService $summaries): \Illuminate\Http\JsonResponse
+    public function generateSummary(Request $request, Process $process, ProcessSummaryService $summaries): JsonResponse
     {
         abort_unless($request->user()?->can('ai.use'), 403);
 

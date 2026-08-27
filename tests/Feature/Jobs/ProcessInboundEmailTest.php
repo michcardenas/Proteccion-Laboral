@@ -3,6 +3,7 @@
 namespace Tests\Feature\Jobs;
 
 use App\Jobs\ProcessInboundEmail;
+use App\Models\AiGeneration;
 use App\Models\EmailIngestion;
 use App\Models\Process;
 use App\Models\ServiceType;
@@ -131,5 +132,63 @@ class ProcessInboundEmailTest extends TestCase
         $ing->refresh();
         $this->assertSame(EmailIngestion::STATUS_FAILED, $ing->status);
         $this->assertNotNull($ing->error);
+    }
+
+    /**
+     * Cada clasificación deja su fila en `ai_generations`.
+     *
+     * Era el camino de IA con más volumen de la app —un correo entrante, una
+     * llamada— y el único que no anotaba nada. El panel de costos no mostraba
+     * cero por error: mostraba cero porque nadie escribía. Novecientas
+     * clasificaciones (~12 USD) se gastaron sin dejar rastro antes de esto.
+     */
+    public function test_la_clasificacion_queda_registrada_con_su_costo(): void
+    {
+        $this->fakeClassification([
+            'action' => 'spam_o_irrelevante',
+            'confidence' => 0.96,
+            'summary' => 'Publicidad no solicitada',
+            'extracted_fields' => ['dates' => [], 'amounts' => [], 'references' => [], 'people' => []],
+        ]);
+
+        $ing = $this->makeIngestion();
+        $this->runJob($ing);
+
+        $fila = AiGeneration::where('contexto_tipo', EmailIngestion::class)
+            ->where('contexto_id', $ing->id)
+            ->sole();
+
+        $this->assertSame('ok', $fila->estado);
+        $this->assertSame(20, $fila->tokens_in);
+        $this->assertSame(10, $fila->tokens_out);
+        $this->assertSame('claude-sonnet-4-6', $fila->modelo);
+        $this->assertGreaterThan(0, (float) $fila->costo_usd, 'sin costo la fila no sirve para facturar');
+        $this->assertStringContainsString('Correo entrante', $fila->prompt);
+    }
+
+    /**
+     * Y si el modelo responde pero la respuesta no se puede leer, ese correo ya
+     * está pagado: la fila se escribe igual, marcada como error.
+     */
+    public function test_una_respuesta_ilegible_tambien_se_registra(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'model' => 'claude-sonnet-4-6',
+                'content' => [['type' => 'text', 'text' => 'esto no es JSON']],
+                'stop_reason' => 'end_turn',
+                'usage' => ['input_tokens' => 20, 'output_tokens' => 10],
+            ], 200),
+        ]);
+
+        $ing = $this->makeIngestion();
+        $this->runJob($ing);
+
+        $fila = AiGeneration::where('contexto_id', $ing->id)->sole();
+        $this->assertSame('error', $fila->estado);
+        $this->assertNotNull($fila->error_mensaje);
+
+        // El correo queda marcado como fallido, como antes de este cambio.
+        $this->assertSame(EmailIngestion::STATUS_FAILED, $ing->fresh()->status);
     }
 }

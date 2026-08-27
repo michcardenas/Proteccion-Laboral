@@ -12,7 +12,6 @@ use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -26,8 +25,7 @@ class ProcessEmailController extends Controller
         private readonly AiService $ai,
         private readonly GmailService $gmail,
         private readonly ProcessContextBuilder $context,
-    ) {
-    }
+    ) {}
 
     /**
      * POST /admin/processes/{process}/emails/{ingestion}/draft

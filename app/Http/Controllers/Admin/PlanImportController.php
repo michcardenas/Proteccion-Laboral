@@ -31,8 +31,7 @@ class PlanImportController extends Controller
     public function __construct(
         private readonly AiService $ai,
         private readonly DocumentTextExtractor $extractor,
-    ) {
-    }
+    ) {}
 
     /**
      * POST /admin/processes/{process}/plan/analyze

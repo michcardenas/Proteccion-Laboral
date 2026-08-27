@@ -23,9 +23,7 @@ use Inertia\Response;
  */
 class EmailReviewController extends Controller
 {
-    public function __construct(private readonly EmailRouter $router)
-    {
-    }
+    public function __construct(private readonly EmailRouter $router) {}
 
     /**
      * GET /admin/emails/review

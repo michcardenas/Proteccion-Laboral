@@ -37,9 +37,7 @@ class DriveService
 
     protected ?Drive $drive = null;
 
-    public function __construct(protected GmailService $gmail)
-    {
-    }
+    public function __construct(protected GmailService $gmail) {}
 
     /**
      * Inyecta un Google_Client ya autorizado (p. ej. un mock en tests).

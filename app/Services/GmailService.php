@@ -37,7 +37,7 @@ class GmailService
             return $this->client;
         }
 
-        $client = new GoogleClient();
+        $client = new GoogleClient;
         $client->setClientId($this->clientId);
         $client->setClientSecret($this->clientSecret);
         $client->setRedirectUri($this->redirectUri);
@@ -190,11 +190,11 @@ class GmailService
      * Envía una respuesta a través de la cuenta de Gmail conectada.
      *
      * @param  array  $params  [
-     *     'to' => string (requerido), 'subject' => string (requerido), 'body' => string (requerido),
-     *     'thread_id' => ?string (para responder en el mismo hilo),
-     *     'in_reply_to' => ?string (Message-ID original, para In-Reply-To/References)
-     * ]
-     * @return string  Id del mensaje enviado.
+     *                         'to' => string (requerido), 'subject' => string (requerido), 'body' => string (requerido),
+     *                         'thread_id' => ?string (para responder en el mismo hilo),
+     *                         'in_reply_to' => ?string (Message-ID original, para In-Reply-To/References)
+     *                         ]
+     * @return string Id del mensaje enviado.
      */
     public function sendReply(array $params): string
     {

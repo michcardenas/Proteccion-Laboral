@@ -12,9 +12,7 @@ use Illuminate\Http\Request;
 
 class ProcessStageController extends Controller
 {
-    public function __construct(private readonly ProcessService $processService)
-    {
-    }
+    public function __construct(private readonly ProcessService $processService) {}
 
     public function update(Request $request, Process $process, ProcessStage $stage): RedirectResponse
     {

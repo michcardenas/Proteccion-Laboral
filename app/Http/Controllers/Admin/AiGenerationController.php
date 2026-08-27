@@ -7,10 +7,12 @@ use App\Models\AiGeneration;
 use App\Models\Comment;
 use App\Models\Document;
 use App\Models\Process;
+use App\Models\User;
 use App\Services\AiService;
 use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -30,9 +32,7 @@ class AiGenerationController extends Controller
         'draft_comunicacion_cliente',
     ];
 
-    public function __construct(private readonly AiService $ai)
-    {
-    }
+    public function __construct(private readonly AiService $ai) {}
 
     /**
      * GET /admin/ai/playground
@@ -50,8 +50,8 @@ class AiGenerationController extends Controller
             ->when(! $user->can('processes.view'), function ($q) use ($user) {
                 $q->where(function ($qq) use ($user) {
                     $qq->where('abogado_lider_id', $user->id)
-                       ->orWhere('apoderado_id', $user->id)
-                       ->orWhere('coordinador_id', $user->id);
+                        ->orWhere('apoderado_id', $user->id)
+                        ->orWhere('coordinador_id', $user->id);
                 });
             })
             ->latest('fecha_apertura')
@@ -273,9 +273,9 @@ class AiGenerationController extends Controller
         $mesParam = $request->query('mes');
         try {
             $base = $mesParam
-                ? \Illuminate\Support\Carbon::createFromFormat('Y-m', $mesParam)->startOfMonth()
+                ? Carbon::createFromFormat('Y-m', $mesParam)->startOfMonth()
                 : now()->startOfMonth();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $base = now()->startOfMonth();
         }
 
@@ -313,7 +313,7 @@ class AiGenerationController extends Controller
                 'prompt' => $g->prompt,
                 'respuesta' => $g->respuesta,
                 'respuesta_preview' => $g->respuesta
-                    ? \Illuminate\Support\Str::limit(strip_tags($g->respuesta), 280, '…')
+                    ? Str::limit(strip_tags($g->respuesta), 280, '…')
                     : null,
                 'created_at' => $g->created_at?->toIso8601String(),
             ]);
@@ -340,7 +340,7 @@ class AiGenerationController extends Controller
 
         // Opciones para los selectores de filtro.
         $filterOptions = [
-            'usuarios' => \App\Models\User::query()
+            'usuarios' => User::query()
                 ->whereIn('id', AiGeneration::query()->select('user_id')->distinct())
                 ->orderBy('name')
                 ->get(['id', 'name']),

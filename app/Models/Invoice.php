@@ -11,7 +11,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Invoice extends Model
 {
-    use HasFactory, SoftDeletes, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'client_id',

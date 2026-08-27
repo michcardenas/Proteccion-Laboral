@@ -83,7 +83,7 @@ class InformeClienteService
             // Callarlo sería lo peor: quien lo lea creería que el análisis
             // terminó y que no había más que decir.
             $markdown .= "\n\n> **Aviso: el informe quedó incompleto.** El modelo agotó el espacio "
-                ."de salida antes de terminar. Vuelve a generarlo o reduce el número de documentos leídos.";
+                .'de salida antes de terminar. Vuelve a generarlo o reduce el número de documentos leídos.';
         }
 
         if ($markdown === '') {
@@ -197,7 +197,7 @@ class InformeClienteService
         $carpeta = $client->drive_folder_name ? " · Carpeta: {$client->drive_folder_name}" : '';
 
         return "# {$client->razon_social}\n\n"
-            ."*Informe generado automáticamente el ".now()->format('d/m/Y H:i')."{$nit}{$carpeta}*"
+            .'*Informe generado automáticamente el '.now()->format('d/m/Y H:i')."{$nit}{$carpeta}*"
             .(($stats['truncado'] ?? false)
                 ? "\n\n> **Este informe quedó incompleto** (ver aviso al final del análisis)."
                 : '');
@@ -212,7 +212,7 @@ class InformeClienteService
         $md .= "Leídos a fondo para este informe: **{$stats['leidos']}**.\n\n";
 
         if ($stats['leidos'] < $stats['legibles']) {
-            $md .= "> Se leyeron los más recientes. Los demás aparecen en el mapa por nombre y ruta, "
+            $md .= '> Se leyeron los más recientes. Los demás aparecen en el mapa por nombre y ruta, '
                 ."pero su contenido no entró en el análisis.\n\n";
         }
 
@@ -221,7 +221,7 @@ class InformeClienteService
         }
 
         $md .= "## Documentos que no se pudieron leer ({$stats['ilegibles']})\n\n";
-        $md .= "Existen en Drive pero la plataforma no pudo extraer su texto: suelen ser PDF "
+        $md .= 'Existen en Drive pero la plataforma no pudo extraer su texto: suelen ser PDF '
             ."escaneados sin OCR, imágenes o archivos demasiado grandes. **La IA no los vio.**\n\n";
 
         foreach ($ilegibles as $d) {
@@ -235,7 +235,7 @@ class InformeClienteService
     protected function sinDocumentos(Client $client): string
     {
         return "# {$client->razon_social}\n\n"
-            ."No hay documentos sincronizados desde Drive para este cliente. "
+            .'No hay documentos sincronizados desde Drive para este cliente. '
             ."Verifica que tenga carpeta asignada y corre `php artisan drive:sync-knowledge --client={$client->id}`.\n";
     }
 

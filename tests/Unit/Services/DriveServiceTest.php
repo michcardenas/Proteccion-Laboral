@@ -16,7 +16,7 @@ class DriveServiceTest extends TestCase
 {
     protected function service(): DriveService
     {
-        return new DriveService(new GmailService());
+        return new DriveService(new GmailService);
     }
 
     public function test_normaliza_un_archivo_de_la_api(): void
@@ -100,7 +100,7 @@ class DriveServiceTest extends TestCase
 
     public function test_empareja_la_carpeta_por_nit(): void
     {
-        $match = (new DriveMapClients())->sugerirCliente('CLIENTE 901555888 - carpeta', $this->clientes());
+        $match = (new DriveMapClients)->sugerirCliente('CLIENTE 901555888 - carpeta', $this->clientes());
 
         $this->assertSame('GPT SEGUROS S.A.S.', $match['cliente']->razon_social);
         $this->assertSame('NIT', $match['motivo']);
@@ -109,7 +109,7 @@ class DriveServiceTest extends TestCase
 
     public function test_empareja_la_carpeta_por_razon_social_ignorando_tildes_y_sufijos(): void
     {
-        $match = (new DriveMapClients())->sugerirCliente('Zonamedica', $this->clientes());
+        $match = (new DriveMapClients)->sugerirCliente('Zonamedica', $this->clientes());
 
         $this->assertSame('Zonamédica', $match['cliente']->razon_social);
         $this->assertGreaterThanOrEqual(0.9, $match['score']);
@@ -117,7 +117,7 @@ class DriveServiceTest extends TestCase
 
     public function test_una_carpeta_ajena_queda_con_confianza_baja(): void
     {
-        $match = (new DriveMapClients())->sugerirCliente('Plantillas internas del despacho', $this->clientes());
+        $match = (new DriveMapClients)->sugerirCliente('Plantillas internas del despacho', $this->clientes());
 
         $this->assertLessThan(0.6, $match['score'], 'no debería proponerse ningún cliente por encima del umbral');
     }
