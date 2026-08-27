@@ -60,6 +60,9 @@ class DriveProponerProcesos extends Command
                     'documentos' => $datos['docs'],
                     'con_texto' => $datos['con_texto'],
                     'desde' => $datos['desde'],
+                    'ultimo_movimiento' => $datos['hasta'],
+                    'contenido' => $datos['ejemplos'],
+                    'de_que_trata' => $datos['resumen'],
                     'abogada' => $this->abogadaDe($client)?->name ?? '(sin identificar)',
                     'codigo_sugerido' => $this->codigo($client, $carpeta),
                     'servicio' => '',           // lo rellena el despacho
@@ -111,7 +114,7 @@ class DriveProponerProcesos extends Command
      * LEGAL/camara.pdf»), que es como la guarda `DriveKnowledgeSync`. Se toma
      * solo el primer tramo: los de más adentro son subcarpetas del mismo asunto.
      *
-     * @return array<string,array{docs:int,con_texto:int,desde:?string}>
+     * @return array<string,array<string,mixed>>
      */
     protected function carpetasDe(Client $client): array
     {
@@ -119,7 +122,7 @@ class DriveProponerProcesos extends Command
 
         $docs = Document::where('client_id', $client->id)
             ->whereNotNull('drive_file_id')
-            ->get(['nombre', 'texto_extraido', 'drive_modified_at', 'created_at']);
+            ->get(['nombre', 'texto_extraido', 'resumen_ia', 'drive_modified_at', 'created_at']);
 
         foreach ($docs as $doc) {
             $partes = explode('/', (string) $doc->nombre);
@@ -128,22 +131,52 @@ class DriveProponerProcesos extends Command
             }
 
             $raiz = trim($partes[0]);
-            $carpetas[$raiz] ??= ['docs' => 0, 'con_texto' => 0, 'desde' => null];
+            $carpetas[$raiz] ??= [
+                'docs' => 0, 'con_texto' => 0, 'desde' => null, 'hasta' => null,
+                'ejemplos' => [], 'resumen' => '',
+            ];
             $carpetas[$raiz]['docs']++;
 
             if (filled($doc->texto_extraido)) {
                 $carpetas[$raiz]['con_texto']++;
             }
 
-            // La fecha más antigua sirve de `fecha_apertura`, que es obligatoria.
+            // Lo que va DENTRO de la carpeta es la mejor pista de qué es, pero
+            // hay que coger el nivel correcto: en «16 COMPRAVENTA GARCES/
+            // ESCRITURA 4300 DEL 4 DE DIC 2023/1.jpeg» el nombre del archivo es
+            // «1.jpeg» y no dice nada — el significado está en la SUBCARPETA.
+            // Cuando no hay subcarpeta, el archivo sí es el nombre útil.
+            $etiqueta = trim($partes[1]);
+            if ($etiqueta !== '' && ! in_array($etiqueta, $carpetas[$raiz]['ejemplos'], true)
+                && count($carpetas[$raiz]['ejemplos']) < 5) {
+                $carpetas[$raiz]['ejemplos'][] = $etiqueta;
+            }
+
+            // Y el resumen del documento más largo ya está pagado: es la mejor
+            // señal de contenido que tenemos y no cuesta una llamada más.
+            if (filled($doc->resumen_ia) && mb_strlen($doc->resumen_ia) > mb_strlen($carpetas[$raiz]['resumen'])) {
+                $carpetas[$raiz]['resumen'] = $doc->resumen_ia;
+            }
+
             $fecha = $doc->drive_modified_at ?? $doc->created_at;
-            if ($fecha && (! $carpetas[$raiz]['desde'] || $fecha->lt($carpetas[$raiz]['desde']))) {
-                $carpetas[$raiz]['desde'] = $fecha;
+            if ($fecha) {
+                // La más antigua sirve de `fecha_apertura`, que es obligatoria.
+                if (! $carpetas[$raiz]['desde'] || $fecha->lt($carpetas[$raiz]['desde'])) {
+                    $carpetas[$raiz]['desde'] = $fecha;
+                }
+                // La más reciente dice si el asunto sigue vivo o está cerrado,
+                // que es justo lo que decide el `estado` del proceso.
+                if (! $carpetas[$raiz]['hasta'] || $fecha->gt($carpetas[$raiz]['hasta'])) {
+                    $carpetas[$raiz]['hasta'] = $fecha;
+                }
             }
         }
 
         foreach ($carpetas as $k => $v) {
             $carpetas[$k]['desde'] = $v['desde']?->format('Y-m-d');
+            $carpetas[$k]['hasta'] = $v['hasta']?->format('Y-m-d');
+            $carpetas[$k]['ejemplos'] = implode(' · ', $v['ejemplos']);
+            $carpetas[$k]['resumen'] = Str::limit(preg_replace('/\s+/', ' ', $v['resumen']), 300);
         }
 
         uasort($carpetas, fn ($a, $b) => $b['docs'] <=> $a['docs']);
