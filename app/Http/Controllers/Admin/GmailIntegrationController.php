@@ -60,17 +60,34 @@ class GmailIntegrationController extends Controller
 
     /**
      * POST /admin/integrations/gmail/disconnect
-     * Elimina los tokens de Gmail almacenados.
+     *
+     * Desconecta UNA cuenta. Borraba todas de golpe, que valia cuando el
+     * despacho compartia una sola bandeja: desde que cada abogada conecta la
+     * suya, un clic aqui dejaba a todo el mundo sin correo, y sin nada que
+     * avisara de que se estaban llevando por delante las cuentas de los demas.
+     *
+     * Cada quien desconecta la suya; direccion puede desconectar cualquiera.
      */
-    public function disconnect(): RedirectResponse
+    public function disconnect(Request $request): RedirectResponse
     {
-        IntegrationToken::query()
-            ->where('provider', IntegrationToken::PROVIDER_GMAIL)
-            ->delete();
+        $datos = $request->validate([
+            'token_id' => ['required', 'integer', 'exists:integration_tokens,id'],
+        ]);
+
+        $token = IntegrationToken::findOrFail($datos['token_id']);
+
+        abort_unless(
+            $request->user()->hasRole('director') || $token->connected_by_user_id === $request->user()->id,
+            403,
+            'Esa cuenta la conectó otra persona.',
+        );
+
+        $correo = $token->account_email;
+        $token->delete();
 
         return redirect()
             ->route('admin.integrations.gmail.status')
-            ->with('success', 'Cuenta de Gmail desconectada.');
+            ->with('success', "Cuenta «{$correo}» desconectada. Sus correos ya ingeridos se conservan.");
     }
 
     /**
@@ -79,15 +96,37 @@ class GmailIntegrationController extends Controller
      */
     public function status(): Response
     {
-        $token = IntegrationToken::query()
+        // Todas las cuentas conectadas, no solo la ultima. Con una bandeja por
+        // abogada, enseñar solo la mas reciente hacia creer que las demas se
+        // habian perdido.
+        $tokens = IntegrationToken::query()
             ->where('provider', IntegrationToken::PROVIDER_GMAIL)
             ->with('connectedBy:id,name')
-            ->latest('id')
-            ->first();
+            ->orderBy('id')
+            ->get();
+
+        $cuentas = $tokens->map(fn (IntegrationToken $t) => [
+            'id' => $t->id,
+            'account_email' => $t->account_email,
+            'scopes' => $t->scopes,
+            'expires_at' => $t->expires_at?->toIso8601String(),
+            'is_expired' => $t->isExpired(),
+            'connected_by' => $t->connectedBy?->name,
+            'connected_by_user_id' => $t->connected_by_user_id,
+            'connected_at' => $t->created_at?->toIso8601String(),
+            'missing_scopes' => array_values(array_filter(
+                config('gmail.scopes', []),
+                fn (string $scope) => ! $t->hasScope($scope),
+            )),
+        ])->all();
+
+        $token = $tokens->last();
 
         return Inertia::render('Admin/Integrations/Gmail', [
+            'cuentas' => $cuentas,
             'connection' => $token ? [
                 'connected' => true,
+                'id' => $token->id,
                 'account_email' => $token->account_email,
                 'scopes' => $token->scopes,
                 'expires_at' => $token->expires_at?->toIso8601String(),

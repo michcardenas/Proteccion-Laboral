@@ -8,6 +8,7 @@ import ConfirmModal from '@/Components/ConfirmModal.vue';
 
 const props = defineProps({
     connection: { type: Object, required: true },
+    cuentas: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -18,7 +19,9 @@ const connectUrl = route('admin.integrations.gmail.connect');
 const formatDateTime = (iso) =>
     iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
-const showDisconnect = ref(false);
+// Qué cuenta se está a punto de desconectar. Null = ninguna. Antes era un
+// booleano y el botón borraba TODAS las cuentas del despacho de una vez.
+const cuentaADesconectar = ref(null);
 
 // Scopes que la app pide pero el token vigente no trae. Google no amplía un token ya
 // emitido: la única forma de otorgarlos es volver a pasar por el consentimiento.
@@ -28,14 +31,20 @@ const missingScopes = computed(() =>
 const disconnecting = ref(false);
 
 function disconnect() {
+    if (!cuentaADesconectar.value) return;
+
     disconnecting.value = true;
-    router.post(route('admin.integrations.gmail.disconnect'), {}, {
-        preserveScroll: true,
-        onFinish: () => {
-            disconnecting.value = false;
-            showDisconnect.value = false;
+    router.post(
+        route('admin.integrations.gmail.disconnect'),
+        { token_id: cuentaADesconectar.value.id },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                disconnecting.value = false;
+                cuentaADesconectar.value = null;
+            },
         },
-    });
+    );
 }
 </script>
 
@@ -144,12 +153,31 @@ function disconnect() {
                             </div>
 
                             <div class="border-t border-brand-100 pt-5">
-                                <button
-                                    @click="showDisconnect = true"
-                                    class="rounded-md border border-danger-200 bg-danger-50 px-4 py-2 text-sm font-medium text-danger-700 transition hover:bg-danger-100"
-                                >
-                                    Desconectar
-                                </button>
+                                <h4 class="text-sm font-semibold text-brand-800">Cuentas conectadas</h4>
+                                <p class="mt-1 text-xs text-brand-500">
+                                    Cada abogada ve el correo de su propia cuenta. Dirección las ve todas.
+                                </p>
+                                <ul class="mt-3 divide-y divide-brand-100 rounded-md border border-brand-100">
+                                    <li
+                                        v-for="c in cuentas"
+                                        :key="c.id"
+                                        class="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                                    >
+                                        <div class="min-w-0">
+                                            <p class="truncate text-sm font-medium text-brand-900">{{ c.account_email }}</p>
+                                            <p class="text-xs text-brand-500">
+                                                Conectada por {{ c.connected_by || '—' }} · {{ formatDateTime(c.connected_at) }}
+                                                <span v-if="c.is_expired" class="ml-1 font-medium text-danger-600">· token caducado</span>
+                                            </p>
+                                        </div>
+                                        <button
+                                            @click="cuentaADesconectar = c"
+                                            class="shrink-0 rounded-md border border-danger-200 bg-danger-50 px-3 py-1.5 text-sm font-medium text-danger-700 transition hover:bg-danger-100"
+                                        >
+                                            Desconectar
+                                        </button>
+                                    </li>
+                                </ul>
                             </div>
                         </dl>
 
@@ -177,12 +205,12 @@ function disconnect() {
         </div>
 
         <ConfirmModal
-            :show="showDisconnect"
-            title="Desconectar Gmail"
-            message="¿Confirmas desconectar la cuenta de Gmail? Se eliminarán los tokens almacenados y deberás volver a autorizar para reactivar la ingesta."
+            :show="cuentaADesconectar !== null"
+            title="Desconectar cuenta"
+            :message="`Se desconectará «${cuentaADesconectar?.account_email ?? ''}» y dejará de traer correo. Las demás cuentas siguen funcionando, y los correos que ya entraron se conservan.`"
             confirm-label="Sí, desconectar"
             variant="danger"
-            @close="showDisconnect = false"
+            @close="cuentaADesconectar = null"
             @confirm="disconnect"
         />
     </AuthenticatedLayout>
