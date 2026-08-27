@@ -9,6 +9,7 @@ use App\Models\Client;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,9 +33,9 @@ class ClientController extends Controller
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('razon_social', 'like', "%{$search}%")
-                  ->orWhere('nit', 'like', "%{$search}%")
-                  ->orWhere('contacto_principal', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('nit', 'like', "%{$search}%")
+                    ->orWhere('contacto_principal', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -140,6 +141,10 @@ class ClientController extends Controller
                 'resumen_documental' => $client->resumen_documental,
                 'resumen_documental_at' => $client->resumen_documental_at?->toIso8601String(),
                 'ficha_desactualizada' => $client->fichaDesactualizada(),
+                // Sin esto la pantalla no sabe si el cliente tiene carpeta y el
+                // boton de traer de Drive nunca aparece.
+                'drive_folder_id' => $client->drive_folder_id,
+                'drive_synced_at' => $client->drive_synced_at?->toIso8601String(),
                 // Estado del portal del cliente (NIT + contraseña).
                 'portal_activo' => (bool) $client->portal_activo,
                 'portal_last_login_at' => $client->portal_last_login_at?->toIso8601String(),
@@ -190,7 +195,7 @@ class ClientController extends Controller
             ],
             'potentialAssignees' => $potentialAssignees,
             'estados' => self::ESTADOS,
-            'documentTypes' => \App\Http\Controllers\Admin\ClientDocumentController::DOCUMENT_TYPES,
+            'documentTypes' => ClientDocumentController::DOCUMENT_TYPES,
         ]);
     }
 
@@ -237,7 +242,7 @@ class ClientController extends Controller
             'password' => ['nullable', 'string', 'min:6', 'max:100'],
         ]);
 
-        $plain = $data['password'] ?? \Illuminate\Support\Str::password(10, symbols: false);
+        $plain = $data['password'] ?? Str::password(10, symbols: false);
 
         $client->forceFill([
             'password' => $plain, // el cast 'hashed' del modelo lo cifra
