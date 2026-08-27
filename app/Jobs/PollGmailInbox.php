@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -62,9 +63,13 @@ class PollGmailInbox implements ShouldQueue
             $ingestion = EmailIngestion::firstOrCreate(
                 ['message_id' => $messageId],
                 [
-                    'from' => $message['from'] ?? '',
-                    'to' => $message['to'] ?? '',
-                    'subject' => $message['subject'] ?? '',
+                    // Recortados a proposito. Las columnas ya son holgadas, pero
+                    // una cabecera fuera de norma no puede volver a dejar un
+                    // correo sin ingerir y al cron reintentandolo cada dos
+                    // minutos para siempre. Mejor guardarlo cortado que perderlo.
+                    'from' => Str::limit((string) ($message['from'] ?? ''), 490, ''),
+                    'to' => Str::limit((string) ($message['to'] ?? ''), 60000, ''),
+                    'subject' => Str::limit((string) ($message['subject'] ?? ''), 990, ''),
                     'body_text' => $message['body_text'] ?? '',
                     'received_at' => $this->parseReceivedAt($message['received_at'] ?? null) ?? now(),
                     'raw_payload' => $message,
