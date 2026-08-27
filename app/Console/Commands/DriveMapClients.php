@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Client;
+use App\Models\ClientDriveFolder;
 use App\Services\DriveService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -116,12 +117,24 @@ class DriveMapClients extends Command
             $estado = 'propuesta ('.$sugerencia['motivo'].')';
 
             if ($this->option('apply')) {
-                $cliente->forceFill([
-                    'drive_folder_id' => $carpeta['id'],
-                    'drive_folder_name' => $carpeta['name'],
-                ])->save();
+                if ($cliente->drive_folder_id && $cliente->drive_folder_id !== $carpeta['id']) {
+                    // Ya tenia carpeta y esta es otra: la misma empresa llevada
+                    // por dos abogadas. Sobreescribir el campo perderia la
+                    // primera y sus documentos, sin que nada avisara.
+                    ClientDriveFolder::updateOrCreate(
+                        ['drive_folder_id' => $carpeta['id']],
+                        ['client_id' => $cliente->id, 'drive_folder_name' => trim(($carpeta['ruta'] ?? '').' / '.$carpeta['name'])],
+                    );
+                    $estado = 'CARPETA AÑADIDA ('.$sugerencia['motivo'].')';
+                } else {
+                    $cliente->forceFill([
+                        'drive_folder_id' => $carpeta['id'],
+                        'drive_folder_name' => $carpeta['name'],
+                    ])->save();
+                    $estado = 'APLICADA ('.$sugerencia['motivo'].')';
+                }
+
                 $aplicados++;
-                $estado = 'APLICADA ('.$sugerencia['motivo'].')';
             }
 
             $filas[] = [
@@ -139,9 +152,15 @@ class DriveMapClients extends Command
         if (! $this->option('apply')) {
             $this->newLine();
             $this->info('Nada se guardó. Repite con --apply para persistir los emparejados.');
-            $this->line('Las carpetas sin coincidencia se mapean a mano: Client::find($id)->update([\'drive_folder_id\' => \'...\']).');
+            $this->line('Las carpetas sin coincidencia se mapean a mano, o se crean con --apply --crear-faltantes.');
         } else {
             $this->info("{$aplicados} cliente(s) mapeado(s).");
+
+            if ($creados > 0) {
+                $this->info("{$creados} cliente(s) creado(s) desde Drive.");
+                $this->newLine();
+                $this->warn('Entran sin NIT ni contacto, y con el nombre de la carpeta como razón social.');
+            }
         }
 
         return self::SUCCESS;

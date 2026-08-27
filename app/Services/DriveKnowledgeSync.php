@@ -58,7 +58,12 @@ class DriveKnowledgeSync
      */
     public function syncClient(Client $client, array $opciones = []): array
     {
-        if (! $client->drive_folder_id) {
+        // Casi siempre es una sola, pero una empresa atendida por dos abogadas
+        // tiene carpeta bajo cada una. Recorrerlas todas es lo que evita que la
+        // mitad de sus documentos sea invisible para la IA.
+        $carpetas = $client->todasLasCarpetasDrive();
+
+        if ($carpetas === []) {
             throw new RuntimeException("El cliente {$client->razon_social} no tiene carpeta de Drive mapeada (drive:map-clients).");
         }
 
@@ -72,7 +77,15 @@ class DriveKnowledgeSync
             'eliminados' => 0, 'errores' => 0, 'sin_texto' => 0, 'detalles' => [],
         ];
 
-        $archivos = $this->drive->listFilesRecursive($client->drive_folder_id, $driveId);
+        $archivos = [];
+        foreach ($carpetas as $carpeta) {
+            foreach ($this->drive->listFilesRecursive($carpeta['id'], $driveId) as $archivo) {
+                $archivos[] = $archivo;
+            }
+        }
+
+        // El tope es por cliente, no por carpeta: quien tiene dos carpetas no
+        // tiene derecho al doble de documentos.
         $archivos = array_slice($archivos, 0, (int) config('drive.max_files_per_client', 200));
 
         $vistos = [];

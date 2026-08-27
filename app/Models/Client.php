@@ -159,4 +159,34 @@ class Client extends Authenticatable
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
+
+    /**
+     * Carpetas de Drive adicionales, cuando dos abogadas llevan a la misma
+     * empresa y cada una tiene la suya. La principal no está aquí: vive en
+     * `drive_folder_id`. Para recorrerlas todas, `todasLasCarpetasDrive()`.
+     */
+    public function carpetasDriveExtra(): HasMany
+    {
+        return $this->hasMany(ClientDriveFolder::class);
+    }
+
+    /**
+     * Todas las carpetas de Drive del cliente, la principal primero.
+     *
+     * @return array<int, array{id: string, nombre: string}>
+     */
+    public function todasLasCarpetasDrive(): array
+    {
+        $carpetas = [];
+
+        if ($this->drive_folder_id) {
+            $carpetas[] = ['id' => $this->drive_folder_id, 'nombre' => (string) $this->drive_folder_name];
+        }
+
+        foreach ($this->carpetasDriveExtra as $extra) {
+            $carpetas[] = ['id' => $extra->drive_folder_id, 'nombre' => (string) $extra->drive_folder_name];
+        }
+
+        return $carpetas;
+    }
 }
