@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Document;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Smalot\PdfParser\Parser as PdfParser;
+use Throwable;
 use ZipArchive;
 
 /**
@@ -14,21 +17,92 @@ use ZipArchive;
  */
 class DocumentTextExtractor
 {
-    public const SUPPORTED = ['pdf', 'docx', 'txt', 'md'];
+    public const SUPPORTED = ['pdf', 'docx', 'txt', 'md', 'csv'];
 
     public function extract(UploadedFile $file): string
     {
         $ext = strtolower($file->getClientOriginalExtension());
-        $path = $file->getRealPath();
 
-        $text = match ($ext) {
+        return $this->normalize($this->fromPath($file->getRealPath(), $ext));
+    }
+
+    /**
+     * Extrae (y cachea) el texto de un Document ya guardado en disco, para que la IA
+     * pueda usar su CONTENIDO como contexto. Es tolerante: nunca lanza — devuelve null
+     * si el formato no se soporta, el archivo no existe o falla la extracción.
+     *
+     * Cachea el resultado en `documents.texto_extraido` (+ `texto_extraido_at` marca el
+     * intento) para no re-extraer en cada generación. Vuelve a intentar solo si el archivo
+     * cambió (`updated_at` posterior al último intento).
+     */
+    public function extractFromDocument(Document $doc): ?string
+    {
+        $yaIntentado = $doc->texto_extraido_at !== null
+            && (! $doc->updated_at || $doc->texto_extraido_at->greaterThanOrEqualTo($doc->updated_at));
+
+        if ($yaIntentado) {
+            return ($doc->texto_extraido ?? '') !== '' ? $doc->texto_extraido : null;
+        }
+
+        $texto = null;
+        try {
+            $ext = strtolower(pathinfo((string) $doc->ruta, PATHINFO_EXTENSION));
+            if (in_array($ext, self::SUPPORTED, true)) {
+                $disk = Storage::disk($doc->disco ?: 'local');
+                if ($doc->ruta && $disk->exists($doc->ruta)) {
+                    $texto = $this->normalize($this->fromPath($disk->path($doc->ruta), $ext));
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+            $texto = null;
+        }
+
+        // Marca el intento aunque no se haya podido leer (cadena vacía), para no reintentar
+        // en cada generación. forceFill: no dispara eventos ni toca `updated_at` manualmente.
+        $doc->forceFill([
+            'texto_extraido' => $texto ?? '',
+            'texto_extraido_at' => now(),
+        ])->saveQuietly();
+
+        return ($texto !== null && $texto !== '') ? $texto : null;
+    }
+
+    /**
+     * Extrae texto de un contenido en memoria (p. ej. lo descargado de Drive) usando un
+     * archivo temporal. Tolerante: devuelve null si el formato no se soporta o falla.
+     */
+    public function fromBytes(string $contents, string $ext): ?string
+    {
+        $ext = strtolower($ext);
+        if (! in_array($ext, self::SUPPORTED, true)) {
+            return null;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'drive_').'.'.$ext;
+
+        try {
+            file_put_contents($tmp, $contents);
+            $texto = $this->normalize($this->fromPath($tmp, $ext));
+
+            return $texto !== '' ? $texto : null;
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    private function fromPath(string $path, string $ext): string
+    {
+        return match ($ext) {
             'pdf' => $this->fromPdf($path),
             'docx' => $this->fromDocx($path),
-            'txt', 'md' => (string) file_get_contents($path),
-            default => throw new RuntimeException("Formato no soportado: .{$ext}. Usa PDF, DOCX o TXT."),
+            'txt', 'md', 'csv' => (string) file_get_contents($path),
+            default => throw new RuntimeException("Formato no soportado: .{$ext}. Usa PDF, DOCX, TXT o CSV."),
         };
-
-        return $this->normalize($text);
     }
 
     private function fromPdf(string $path): string

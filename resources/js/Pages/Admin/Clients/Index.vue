@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import DataTable from '@/Components/DataTable.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -66,18 +67,15 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
 
     <AuthenticatedLayout>
         <template #header>
-            <div>
-                <h1 class="text-lg font-semibold text-slate-900 sm:text-xl">Clientes</h1>
-                <p class="text-xs text-slate-500">Empresas atendidas por la firma.</p>
-            </div>
+            <PageHeader titulo="Clientes" help-key="clients" />
         </template>
 
         <div class="space-y-5">
             <!-- Top bar -->
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1">
-                        Total: <strong class="ml-0.5 text-slate-900">{{ clients.total }}</strong>
+                <div class="flex flex-wrap items-center gap-2 text-xs text-brand-600">
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1">
+                        Total: <strong class="ml-0.5 text-brand-900">{{ clients.total }}</strong>
                     </span>
                 </div>
                 <Link
@@ -93,11 +91,11 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
             </div>
 
             <!-- Filters -->
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="rounded-xl border border-brand-200 bg-white p-4 shadow-sm">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div class="lg:col-span-2">
                         <div class="relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-400">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.34-4.34m0 0A7.5 7.5 0 1116.66 5.66a7.5 7.5 0 010 11"/>
                             </svg>
                             <TextInput
@@ -108,12 +106,12 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                             />
                         </div>
                     </div>
-                    <select v-model="estado" class="rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
+                    <select v-model="estado" class="rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
                         <option value="">Todos los estados</option>
                         <option v-for="e in estados" :key="e" :value="e">{{ e }}</option>
                     </select>
                     <div class="flex gap-2">
-                        <select v-model="sector" class="flex-1 rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
+                        <select v-model="sector" class="flex-1 rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900">
                             <option value="">Todos los sectores</option>
                             <option v-for="s in sectores" :key="s" :value="s">{{ s }}</option>
                         </select>
@@ -121,7 +119,7 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                             v-if="hasActiveFilters"
                             type="button"
                             @click="clearFilters"
-                            class="rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                            class="rounded-md border border-brand-200 bg-white px-3 text-sm text-brand-600 hover:bg-brand-50"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -147,21 +145,21 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                             {{ initialsFor(row.razon_social) }}
                         </div>
                         <div class="min-w-0">
-                            <p class="truncate font-medium text-slate-900 group-hover:text-brand-900">{{ row.razon_social }}</p>
-                            <p class="truncate text-xs text-slate-500">{{ row.contacto_principal || row.email || '—' }}</p>
+                            <p class="truncate font-medium text-brand-900 group-hover:text-brand-900">{{ row.razon_social }}</p>
+                            <p class="truncate text-xs text-brand-500">{{ row.contacto_principal || row.email || '—' }}</p>
                         </div>
                     </Link>
                 </template>
 
                 <template #cell-nit="{ row }">
-                    <span class="text-xs text-slate-700">
-                        {{ row.nit || '—' }}<span v-if="row.dv" class="text-slate-400">-{{ row.dv }}</span>
+                    <span class="text-xs text-brand-700">
+                        {{ row.nit || '—' }}<span v-if="row.dv" class="text-brand-400">-{{ row.dv }}</span>
                     </span>
                 </template>
 
                 <template #cell-ciudad="{ row }">
-                    <p class="text-sm text-slate-700">{{ row.ciudad || '—' }}</p>
-                    <p class="text-xs text-slate-500">{{ row.sector || 'Sin sector' }}</p>
+                    <p class="text-sm text-brand-700">{{ row.ciudad || '—' }}</p>
+                    <p class="text-xs text-brand-500">{{ row.sector || 'Sin sector' }}</p>
                 </template>
 
                 <template #cell-estado="{ row }">
@@ -180,20 +178,20 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                         </span>
                         <span
                             v-if="row.asignados.length > 3"
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600 ring-2 ring-white"
+                            class="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-600 ring-2 ring-white"
                         >
                             +{{ row.asignados.length - 3 }}
                         </span>
                     </div>
-                    <span v-else class="text-xs text-slate-400">Sin asignar</span>
+                    <span v-else class="text-xs text-brand-400">Sin asignar</span>
                 </template>
 
                 <template #cell-metricas="{ row }">
                     <div class="flex items-center justify-end gap-2 text-xs">
-                        <span class="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">
+                        <span class="rounded-full bg-info-50 px-2 py-0.5 font-medium text-info-700">
                             {{ row.processes_count }} procesos
                         </span>
-                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                        <span class="rounded-full bg-success-50 px-2 py-0.5 font-medium text-success-700">
                             {{ row.contracts_count }} contratos
                         </span>
                     </div>

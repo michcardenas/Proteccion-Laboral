@@ -16,6 +16,8 @@ Eres un abogado laboralista colombiano. Redacta un **borrador de respuesta proce
 
 {{key_arguments}}
 
+{{expediente_contexto}}
+
 ## Contexto adicional aportado por el abogado
 
 {{contexto_adicional}}

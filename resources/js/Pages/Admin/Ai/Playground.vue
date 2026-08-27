@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import InfoNote from '@/Components/InfoNote.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -78,20 +80,19 @@ function copiarBorrador() {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                IA · Playground de generación
-            </h2>
+            <PageHeader titulo="Laboratorio de IA" help-key="playground" />
         </template>
 
-        <div class="py-8">
-            <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
+        <div>
+            <div class="mx-auto max-w-5xl">
                 <div class="bg-white shadow-sm sm:rounded-lg p-6">
 
-                    <p class="text-sm text-gray-600 mb-6">
-                        Página de pruebas para generar borradores con la API de Claude.
-                        Cada generación queda registrada en <code class="bg-gray-100 px-1 rounded">ai_generations</code>
-                        con tokens, costo USD, latencia y hash del request.
-                    </p>
+                    <InfoNote tono="info" titulo="Esto es un espacio de pruebas" class="mb-6">
+                        Lo que generes aquí <strong>no se envía por correo</strong> ni se guarda en ningún expediente.
+                        Para generar y enviar de verdad: entra al proceso → pestaña <strong>Correos</strong> →
+                        <strong>Responder</strong> → <strong>Redactar con IA</strong>.
+                        Cada generación sí queda registrada en Uso de IA con su costo.
+                    </InfoNote>
 
                     <!-- Form -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -100,7 +101,7 @@ function copiarBorrador() {
                             <select
                                 id="process"
                                 v-model="selectedProcessId"
-                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                class="mt-1 block w-full border-brand-300 rounded-md shadow-sm focus:border-accent-500 focus:ring-accent-500"
                             >
                                 <option v-for="p in processes" :key="p.id" :value="p.id">
                                     {{ p.codigo }} — {{ p.titulo }} ({{ p.client_name }})
@@ -109,7 +110,7 @@ function copiarBorrador() {
                                     No tienes procesos visibles
                                 </option>
                             </select>
-                            <p v-if="selectedProcess" class="text-xs text-gray-500 mt-1">
+                            <p v-if="selectedProcess" class="text-xs text-brand-500 mt-1">
                                 Cliente: {{ selectedProcess.client_name }} · Servicio: {{ selectedProcess.service_type }}
                             </p>
                         </div>
@@ -119,11 +120,11 @@ function copiarBorrador() {
                             <select
                                 id="template"
                                 v-model="selectedTemplate"
-                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                class="mt-1 block w-full border-brand-300 rounded-md shadow-sm focus:border-accent-500 focus:ring-accent-500"
                             >
                                 <option v-for="t in templates" :key="t" :value="t">{{ t }}</option>
                             </select>
-                            <p class="text-xs text-gray-500 mt-1">
+                            <p class="text-xs text-brand-500 mt-1">
                                 Archivo: <code>resources/prompts/{{ selectedTemplate }}.md</code>
                             </p>
                         </div>
@@ -135,9 +136,9 @@ function copiarBorrador() {
                             id="placeholders"
                             v-model="placeholdersJson"
                             rows="8"
-                            class="mt-1 block w-full font-mono text-xs border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            class="mt-1 block w-full font-mono text-xs border-brand-300 rounded-md shadow-sm focus:border-accent-500 focus:ring-accent-500"
                         ></textarea>
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p class="text-xs text-brand-500 mt-1">
                             Estos valores se inyectan en los placeholders <code>{{ placeholderTag }}</code> del prompt.
                             <code>process_code</code>, <code>client_name</code> y <code>service_type</code> se autocompletan desde el proceso.
                         </p>
@@ -147,50 +148,50 @@ function copiarBorrador() {
                         <PrimaryButton :disabled="loading || !selectedProcessId" @click="generar">
                             {{ loading ? 'Generando…' : 'Generar borrador' }}
                         </PrimaryButton>
-                        <span v-if="loading" class="text-sm text-gray-500">
+                        <span v-if="loading" class="text-sm text-brand-500">
                             Llamando a Claude (puede tardar 5-30s)…
                         </span>
                     </div>
 
                     <!-- Error -->
-                    <div v-if="error" class="mt-6 bg-red-50 border border-red-200 rounded-md p-4">
-                        <h3 class="text-sm font-semibold text-red-800 mb-1">Error</h3>
-                        <p class="text-sm text-red-700 whitespace-pre-wrap">{{ error }}</p>
+                    <div v-if="error" class="mt-6 bg-danger-50 border border-danger-200 rounded-md p-4">
+                        <h3 class="text-sm font-semibold text-danger-800 mb-1">Error</h3>
+                        <p class="text-sm text-danger-700 whitespace-pre-wrap">{{ error }}</p>
                     </div>
 
                     <!-- Resultado -->
                     <div v-if="result" class="mt-6 space-y-4">
                         <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-                            <div class="bg-indigo-50 border border-indigo-100 rounded-md p-3">
-                                <div class="text-xs text-indigo-700">Modelo</div>
-                                <div class="text-sm font-semibold text-indigo-900">{{ result.modelo }}</div>
+                            <div class="bg-accent-50 border border-accent-100 rounded-md p-3">
+                                <div class="text-xs text-accent-700">Modelo</div>
+                                <div class="text-sm font-semibold text-accent-900">{{ result.modelo }}</div>
                             </div>
-                            <div class="bg-green-50 border border-green-100 rounded-md p-3">
-                                <div class="text-xs text-green-700">Tokens IN</div>
-                                <div class="text-lg font-bold text-green-900">{{ result.tokens.input_tokens }}</div>
+                            <div class="bg-success-50 border border-success-100 rounded-md p-3">
+                                <div class="text-xs text-success-700">Tokens IN</div>
+                                <div class="text-lg font-bold text-success-900">{{ result.tokens.input_tokens }}</div>
                             </div>
-                            <div class="bg-blue-50 border border-blue-100 rounded-md p-3">
-                                <div class="text-xs text-blue-700">Tokens OUT</div>
-                                <div class="text-lg font-bold text-blue-900">{{ result.tokens.output_tokens }}</div>
+                            <div class="bg-info-50 border border-info-100 rounded-md p-3">
+                                <div class="text-xs text-info-700">Tokens OUT</div>
+                                <div class="text-lg font-bold text-info-900">{{ result.tokens.output_tokens }}</div>
                             </div>
-                            <div class="bg-amber-50 border border-amber-100 rounded-md p-3">
-                                <div class="text-xs text-amber-700">Costo</div>
-                                <div class="text-lg font-bold text-amber-900">${{ result.costo_usd.toFixed(6) }}</div>
+                            <div class="bg-warning-50 border border-warning-100 rounded-md p-3">
+                                <div class="text-xs text-warning-700">Costo</div>
+                                <div class="text-lg font-bold text-warning-900">${{ result.costo_usd.toFixed(6) }}</div>
                             </div>
-                            <div class="bg-purple-50 border border-purple-100 rounded-md p-3">
-                                <div class="text-xs text-purple-700">Latencia</div>
-                                <div class="text-lg font-bold text-purple-900">{{ result.latencia_ms }}ms</div>
+                            <div class="bg-accent-50 border border-accent-100 rounded-md p-3">
+                                <div class="text-xs text-accent-700">Latencia</div>
+                                <div class="text-lg font-bold text-accent-900">{{ result.latencia_ms }}ms</div>
                             </div>
                         </div>
 
-                        <div class="border border-gray-200 rounded-md">
-                            <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
-                                <span class="text-sm font-semibold text-gray-700">
+                        <div class="border border-brand-200 rounded-md">
+                            <div class="flex items-center justify-between px-4 py-2 border-b border-brand-200 bg-brand-50">
+                                <span class="text-sm font-semibold text-brand-700">
                                     Borrador (AiGeneration #{{ result.id }})
                                 </span>
                                 <SecondaryButton @click="copiarBorrador">Copiar</SecondaryButton>
                             </div>
-                            <pre class="p-4 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-[600px] overflow-y-auto">{{ result.borrador }}</pre>
+                            <pre class="p-4 text-sm text-brand-800 whitespace-pre-wrap break-words max-h-[600px] overflow-y-auto">{{ result.borrador }}</pre>
                         </div>
                     </div>
                 </div>

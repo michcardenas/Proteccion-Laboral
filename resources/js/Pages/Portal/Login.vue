@@ -25,16 +25,16 @@ const submit = () => {
         <Head title="Portal del cliente" />
 
         <div class="mb-8">
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-inset ring-indigo-100">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-accent-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-700 ring-1 ring-inset ring-accent-100">
                 Portal del cliente
             </span>
-            <h2 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Consulta tu caso</h2>
-            <p class="mt-1 text-sm text-slate-500">
+            <h2 class="mt-3 text-2xl font-semibold tracking-tight text-brand-900">Consulta tu caso</h2>
+            <p class="mt-1 text-sm text-brand-500">
                 Ingresa con el <strong>NIT</strong> de tu empresa y la contraseña que te entregó Protección Laboral.
             </p>
         </div>
 
-        <div v-if="status" class="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <div v-if="status" class="mb-6 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-700">
             {{ status }}
         </div>
 
@@ -74,8 +74,8 @@ const submit = () => {
             </button>
         </form>
 
-        <div class="mt-8 border-t border-slate-200 pt-5 text-center">
-            <Link :href="route('login')" class="text-sm font-medium text-slate-500 transition hover:text-brand-900">
+        <div class="mt-8 border-t border-brand-200 pt-5 text-center">
+            <Link :href="route('login')" class="text-sm font-medium text-brand-500 transition hover:text-brand-900">
                 ¿Eres del equipo de Protección Laboral? Inicia sesión aquí →
             </Link>
         </div>

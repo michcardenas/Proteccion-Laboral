@@ -17,6 +17,8 @@ Eres asistente del equipo legal de Protección Laboral. Redacta un **mensaje al 
 
 {{next_steps}}
 
+{{expediente_contexto}}
+
 ## Contexto adicional aportado por el abogado
 
 {{contexto_adicional}}

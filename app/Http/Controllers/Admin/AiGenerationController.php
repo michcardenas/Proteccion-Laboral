@@ -8,6 +8,7 @@ use App\Models\Comment;
 use App\Models\Document;
 use App\Models\Process;
 use App\Services\AiService;
+use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -90,7 +91,9 @@ class AiGenerationController extends Controller
             'placeholders.*' => ['nullable', 'string'],
         ]);
 
-        $process->loadMissing(['client:id,razon_social', 'serviceType:id,nombre']);
+        // Columnas completas: el ProcessContextBuilder necesita NIT/sector/ciudad del cliente
+        // y loadMissing no recargaría la relación si ya viniera con columnas restringidas.
+        $process->loadMissing(['client', 'serviceType']);
 
         $prompt = $this->renderTemplate(
             template: $validated['template'],
@@ -400,6 +403,8 @@ class AiGenerationController extends Controller
         $path = resource_path("prompts/{$template}.md");
         abort_if(! is_file($path), 422, "Plantilla {$template} no encontrada.");
 
+        $contexto = app(ProcessContextBuilder::class)->build($process);
+
         $defaults = [
             'process_code' => $process->codigo ?? '',
             'client_name' => $process->client?->razon_social ?? '',
@@ -407,12 +412,23 @@ class AiGenerationController extends Controller
         ];
 
         $placeholders = array_merge($defaults, $overrides);
+        // El contexto del expediente lo arma el sistema y siempre gana sobre cualquier override.
+        $placeholders['expediente_contexto'] = $contexto;
 
         $replacements = [];
         foreach ($placeholders as $key => $value) {
             $replacements["{{{$key}}}"] = (string) ($value ?? '');
         }
 
-        return strtr(file_get_contents($path), $replacements);
+        $contenido = file_get_contents($path);
+        $rendered = strtr($contenido, $replacements);
+
+        // Red de seguridad: si la plantilla no incluye el placeholder {{expediente_contexto}}
+        // (p. ej. una plantilla nueva sin actualizar), anexamos el contexto para no perderlo.
+        if (! str_contains($contenido, '{{expediente_contexto}}') && trim($contexto) !== '') {
+            $rendered .= "\n\n---\n\n".$contexto;
+        }
+
+        return $rendered;
     }
 }

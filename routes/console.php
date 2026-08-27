@@ -16,3 +16,12 @@ Artisan::command('inspire', function () {
 Schedule::job(new PollGmailInbox)
     ->everyTwoMinutes()
     ->withoutOverlapping();
+
+// Sincroniza la unidad compartida de Drive con los documentos de cada cliente.
+// Apagado por defecto (DRIVE_AUTO_SYNC): al detectar cambios regenera la ficha de
+// conocimiento, y eso consume API de Anthropic.
+if (config('drive.auto_sync')) {
+    Schedule::command('drive:sync-knowledge')
+        ->dailyAt(config('drive.auto_sync_at', '02:00'))
+        ->withoutOverlapping();
+}

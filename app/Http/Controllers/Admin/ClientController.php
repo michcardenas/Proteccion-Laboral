@@ -136,6 +136,10 @@ class ClientController extends Controller
                 'fecha_alta' => $client->fecha_alta?->format('Y-m-d'),
                 'notas' => $client->notas,
                 'created_at' => $client->created_at->toIso8601String(),
+                // Ficha de conocimiento (digest IA de los documentos del cliente).
+                'resumen_documental' => $client->resumen_documental,
+                'resumen_documental_at' => $client->resumen_documental_at?->toIso8601String(),
+                'ficha_desactualizada' => $client->fichaDesactualizada(),
                 // Estado del portal del cliente (NIT + contraseña).
                 'portal_activo' => (bool) $client->portal_activo,
                 'portal_last_login_at' => $client->portal_last_login_at?->toIso8601String(),

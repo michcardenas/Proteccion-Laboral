@@ -131,7 +131,7 @@ const navSections = computed(() => {
         });
     }
 
-    if (hasRole('director')) {
+    if (can('gmail.manage')) {
         sections.push({
             title: 'Integraciones',
             items: [
@@ -170,14 +170,14 @@ const isActive = (key) => {
 
 <template>
     <aside
-        class="flex h-full w-72 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-out"
+        class="flex h-full w-72 flex-col border-r border-brand-200 bg-white transition-[width] duration-200 ease-out"
         :class="[mini ? 'lg:w-20' : 'lg:w-72', collapsed && hovered ? 'lg:shadow-2xl' : '']"
         @mouseenter="hovered = true"
         @mouseleave="hovered = false"
     >
         <!-- Brand -->
         <div
-            class="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-5"
+            class="flex items-center justify-between gap-2 border-b border-brand-100 px-5 py-5"
             :class="mini ? 'lg:justify-center lg:px-3' : ''"
         >
             <Link
@@ -191,7 +191,7 @@ const isActive = (key) => {
             <!-- Colapsar (solo escritorio) -->
             <button
                 type="button"
-                class="hidden rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:inline-flex"
+                class="hidden rounded-md p-1.5 text-brand-500 hover:bg-brand-100 hover:text-brand-900 lg:inline-flex"
                 @click="$emit('toggle-collapse')"
                 :aria-label="collapsed ? 'Expandir menú' : 'Colapsar menú'"
                 :title="collapsed ? 'Expandir menú' : 'Colapsar menú'"
@@ -208,7 +208,7 @@ const isActive = (key) => {
             <!-- Cerrar (solo móvil) -->
             <button
                 type="button"
-                class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+                class="rounded-md p-1.5 text-brand-500 hover:bg-brand-100 hover:text-brand-900 lg:hidden"
                 @click="$emit('close')"
                 aria-label="Cerrar menú"
             >
@@ -222,7 +222,7 @@ const isActive = (key) => {
         <nav class="scrollbar-thin flex-1 space-y-6 overflow-y-auto px-3 py-5">
             <div v-for="section in navSections" :key="section.title">
                 <p
-                    class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
+                    class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-brand-400"
                     :class="mini ? 'lg:hidden' : ''"
                 >
                     {{ section.title }}
@@ -241,7 +241,7 @@ const isActive = (key) => {
                         <div
                             v-else
                             :title="mini ? item.label : null"
-                            class="flex cursor-not-allowed items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-slate-400"
+                            class="flex cursor-not-allowed items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-brand-400"
                             :class="mini ? 'lg:justify-center lg:px-2' : ''"
                         >
                             <span class="flex items-center gap-3" :class="mini ? 'lg:gap-0' : ''">
@@ -250,7 +250,7 @@ const isActive = (key) => {
                             </span>
                             <span
                                 v-if="item.soon"
-                                class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-500"
+                                class="rounded-full bg-brand-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-brand-500"
                                 :class="mini ? 'lg:hidden' : ''"
                             >
                                 Pronto
@@ -262,7 +262,7 @@ const isActive = (key) => {
         </nav>
 
         <!-- User card -->
-        <div class="border-t border-slate-100 p-4">
+        <div class="border-t border-brand-100 p-4">
             <div class="flex items-center gap-3" :class="mini ? 'lg:justify-center' : ''">
                 <div
                     class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-900 text-xs font-semibold text-white"
@@ -271,8 +271,8 @@ const isActive = (key) => {
                     {{ user?.name?.split(' ').map(n => n[0]).slice(0,2).join('') }}
                 </div>
                 <div class="min-w-0 flex-1" :class="mini ? 'lg:hidden' : ''">
-                    <p class="truncate text-sm font-medium text-slate-900">{{ user?.name }}</p>
-                    <p class="truncate text-xs text-slate-500">{{ userRoles[0] }}</p>
+                    <p class="truncate text-sm font-medium text-brand-900">{{ user?.name }}</p>
+                    <p class="truncate text-xs text-brand-500">{{ userRoles[0] }}</p>
                 </div>
             </div>
         </div>

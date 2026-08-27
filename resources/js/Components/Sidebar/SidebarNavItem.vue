@@ -19,13 +19,13 @@ defineProps({
         :class="[
             active
                 ? 'bg-brand-900 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                : 'text-brand-600 hover:bg-brand-100 hover:text-brand-900',
             collapsed ? 'lg:justify-center lg:gap-0 lg:px-2' : '',
         ]"
     >
         <span
             class="flex h-5 w-5 items-center justify-center"
-            :class="active ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'"
+            :class="active ? 'text-white' : 'text-brand-400 group-hover:text-brand-700'"
             v-html="icon"
         />
         <span class="truncate" :class="collapsed ? 'lg:hidden' : ''">{{ label }}</span>
@@ -33,7 +33,7 @@ defineProps({
             v-if="badge"
             class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
             :class="[
-                active ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700',
+                active ? 'bg-white/20 text-white' : 'bg-danger-100 text-danger-700',
                 collapsed ? 'lg:hidden' : '',
             ]"
         >

@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PageHeader from '@/Components/PageHeader.vue';
 import DataTable from '@/Components/DataTable.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
@@ -105,25 +106,22 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
 
     <AuthenticatedLayout>
         <template #header>
-            <div>
-                <h1 class="text-lg font-semibold text-slate-900 sm:text-xl">Gestión de usuarios</h1>
-                <p class="text-xs text-slate-500">Crea, edita y administra los accesos de tu equipo.</p>
-            </div>
+            <PageHeader titulo="Usuarios y roles" help-key="users" />
         </template>
 
         <div class="space-y-5">
             <!-- Page actions + summary -->
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap gap-2 text-xs text-slate-600">
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1">
-                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <div class="flex flex-wrap gap-2 text-xs text-brand-600">
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success-500" />
                         {{ totalActive }} activos
                     </span>
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1">
-                        <span class="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1">
+                        <span class="h-1.5 w-1.5 rounded-full bg-danger-500" />
                         {{ totalInactive }} inactivos
                     </span>
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1">
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1">
                         Total: {{ users.total }}
                     </span>
                 </div>
@@ -139,12 +137,12 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
             </div>
 
             <!-- Filters -->
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="rounded-xl border border-brand-200 bg-white p-4 shadow-sm">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div class="lg:col-span-2">
                         <label class="sr-only">Buscar</label>
                         <div class="relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-400">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.34-4.34m0 0A7.5 7.5 0 1116.66 5.66a7.5 7.5 0 010 11"/>
                             </svg>
                             <TextInput
@@ -157,7 +155,7 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                     </div>
                     <select
                         v-model="role"
-                        class="rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                        class="rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                     >
                         <option value="">Todos los roles</option>
                         <option v-for="r in roles" :key="r" :value="r">{{ r }}</option>
@@ -165,7 +163,7 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                     <div class="flex gap-2">
                         <select
                             v-model="isActive"
-                            class="flex-1 rounded-md border-slate-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
+                            class="flex-1 rounded-md border-brand-300 text-sm shadow-sm focus:border-brand-900 focus:ring-brand-900"
                         >
                             <option value="">Todos los estados</option>
                             <option value="1">Activos</option>
@@ -175,7 +173,7 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                             v-if="hasActiveFilters"
                             type="button"
                             @click="clearFilters"
-                            class="rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                            class="rounded-md border border-brand-200 bg-white px-3 text-sm text-brand-600 hover:bg-brand-50"
                             title="Limpiar filtros"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
@@ -199,8 +197,8 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                             {{ initialsFor(row.name) }}
                         </div>
                         <div class="min-w-0">
-                            <p class="truncate font-medium text-slate-900">{{ row.name }}</p>
-                            <p class="truncate text-xs text-slate-500">{{ row.email }}</p>
+                            <p class="truncate font-medium text-brand-900">{{ row.name }}</p>
+                            <p class="truncate text-xs text-brand-500">{{ row.email }}</p>
                         </div>
                     </div>
                 </template>
@@ -211,7 +209,7 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                         :variant="roleVariants[row.role] || 'gray'"
                         :label="row.role"
                     />
-                    <span v-else class="text-xs text-slate-400">sin rol</span>
+                    <span v-else class="text-xs text-brand-400">sin rol</span>
                 </template>
 
                 <template #cell-is_active="{ row }">
@@ -222,7 +220,7 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                 </template>
 
                 <template #cell-last_login_at="{ row }">
-                    <span class="text-xs text-slate-500">{{ formatDate(row.last_login_at) }}</span>
+                    <span class="text-xs text-brand-500">{{ formatDate(row.last_login_at) }}</span>
                 </template>
 
                 <template #cell-actions="{ row }">
@@ -230,20 +228,20 @@ const hasActiveFilters = computed(() => !!search.value || !!role.value || isActi
                         <button
                             v-if="row.id !== currentUserId"
                             @click="toggleActive(row)"
-                            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            class="rounded-md border border-brand-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
                         >
                             {{ row.is_active ? 'Desactivar' : 'Activar' }}
                         </button>
                         <Link
                             :href="route('admin.users.edit', row.id)"
-                            class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            class="rounded-md border border-brand-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
                         >
                             Editar
                         </Link>
                         <button
                             v-if="row.id !== currentUserId"
                             @click="askDelete(row)"
-                            class="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                            class="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-1 text-xs font-medium text-danger-700 hover:bg-danger-100"
                         >
                             Eliminar
                         </button>

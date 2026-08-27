@@ -258,6 +258,20 @@ class GmailService
     // ------------------------------------------------------------------
 
     /**
+     * Devuelve el Google_Client ya autorizado con el token guardado (refrescándolo si
+     * hace falta). Lo usa DriveService para hablar con la API de Drive con la MISMA
+     * cuenta conectada, sin duplicar la lógica de tokens.
+     *
+     * @throws RuntimeException si no hay una cuenta conectada.
+     */
+    public function authorizedClient(): GoogleClient
+    {
+        $this->authorizeFromStoredToken();
+
+        return $this->client();
+    }
+
+    /**
      * Devuelve un servicio Gmail autorizado a partir del token almacenado.
      */
     protected function gmail(): Gmail

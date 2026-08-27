@@ -25,6 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'roles.manage', 'settings.manage',
 
         'clients.view', 'clients.view_assigned', 'clients.create', 'clients.update', 'clients.delete',
+        'clients.activate_portal',
 
         'services.view', 'services.manage',
 
@@ -51,6 +52,8 @@ class RolesAndPermissionsSeeder extends Seeder
 
         'emails.review',
 
+        'gmail.manage',
+
         'portal.access',
     ];
 
@@ -58,7 +61,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'director' => '*',
         'coordinador' => [
             'users.view',
-            'clients.view', 'clients.create', 'clients.update',
+            'clients.view', 'clients.create', 'clients.update', 'clients.activate_portal',
             'services.view', 'services.manage',
             'contracts.view', 'contracts.create', 'contracts.update',
             'processes.view', 'processes.create', 'processes.update', 'processes.assign', 'processes.close',
@@ -73,12 +76,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.executive', 'dashboard.operational',
             'ai.use', 'ai.usage_view',
             'emails.review',
+            'gmail.manage',
         ],
         // Abogado senior: perfil operativo fuerte (Dra. Camila). Ve TODOS los clientes,
         // gestiona procesos/contratos y asigna, pero NO crea clientes (reservado a
         // coordinador/director) ni administra usuarios/roles/ajustes.
         'abogado_senior' => [
-            'clients.view',
+            'clients.view', 'clients.activate_portal',
             'services.view',
             'contracts.view', 'contracts.create', 'contracts.update',
             'processes.view', 'processes.create', 'processes.update', 'processes.assign', 'processes.close',
@@ -92,10 +96,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.executive', 'dashboard.operational',
             'ai.use', 'ai.usage_view',
             'emails.review',
+            'gmail.manage',
         ],
         'abogado_interno' => [
             // clients.view (todos): las abogadas piden que todos vean cada cliente creado.
-            'clients.view',
+            'clients.view', 'clients.activate_portal',
             'services.view',
             'contracts.view',
             'processes.view_assigned', 'processes.update',
@@ -107,9 +112,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'payments.view', 'payments.manage',
             'dashboard.operational',
             'ai.use',
+            'gmail.manage',
         ],
         'abogado_externo' => [
-            'clients.view',
+            'clients.view', 'clients.activate_portal',
             'services.view',
             'contracts.view',
             'processes.view_assigned', 'processes.update',
@@ -120,9 +126,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'comments.view', 'comments.create',
             'payments.view', 'payments.manage',
             'ai.use',
+            'gmail.manage',
         ],
         'apoderado' => [
-            'clients.view',
+            'clients.view', 'clients.activate_portal',
             'processes.view_assigned', 'processes.update',
             'stages.update', 'stages.complete',
             'tasks.view', 'tasks.create', 'tasks.update', 'tasks.complete',
@@ -131,6 +138,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'comments.view', 'comments.create',
             'payments.view', 'payments.manage',
             'ai.use',
+            'gmail.manage',
         ],
         'contador' => [
             'clients.view',
