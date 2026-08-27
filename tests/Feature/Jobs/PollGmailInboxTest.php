@@ -135,4 +135,36 @@ class PollGmailInboxTest extends TestCase
             'integration_token_id' => $buena->id,
         ]);
     }
+
+    /**
+     * Un correo con cien destinatarios no puede tumbar la ingesta.
+     *
+     * `to` era varchar(255). Un correo con muchos destinatarios lo desbordaba,
+     * el guardado fallaba, y el cron lo reintentaba cada dos minutos: 688
+     * errores en un dia, con ese correo sin entrar nunca. La columna es ahora
+     * `text`, y ademas se recorta al escribir por si aparece algo peor.
+     */
+    public function test_un_correo_con_cabeceras_enormes_entra_igual(): void
+    {
+        Bus::fake();
+        $this->cuentaConectada();
+
+        $muchos = implode(', ', array_map(fn ($i) => "persona{$i}@empresa.com", range(1, 400)));
+        $asunto = str_repeat('RV: ', 500).'contrato';
+
+        $gmail = Mockery::mock(GmailService::class);
+        $gmail->shouldReceive('paraCuenta')->andReturnSelf();
+        $gmail->shouldReceive('fetchUnread')->once()->andReturn([
+            array_merge($this->fakeMessage('gigante'), ['to' => $muchos, 'subject' => $asunto]),
+        ]);
+
+        (new PollGmailInbox)->handle($gmail);
+
+        $ing = EmailIngestion::where('message_id', 'gigante')->first();
+
+        $this->assertNotNull($ing, 'el correo tiene que entrar, aunque sea recortado');
+        $this->assertStringContainsString('persona1@empresa.com', $ing->to);
+        $this->assertLessThanOrEqual(1000, mb_strlen($ing->subject));
+        Bus::assertDispatched(ProcessInboundEmail::class);
+    }
 }

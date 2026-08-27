@@ -7,7 +7,10 @@ use Illuminate\Support\Str;
 
 class ProcessSummaryService
 {
-    public function __construct(private readonly AiService $ai) {}
+    public function __construct(
+        private readonly AiService $ai,
+        private readonly ProcessContextBuilder $contexto,
+    ) {}
 
     /**
      * Genera el resumen ejecutivo del proceso con IA y lo persiste en
@@ -20,7 +23,12 @@ class ProcessSummaryService
     public function generate(Process $process): Process
     {
         $process->loadMissing([
-            'client:id,razon_social',
+            // El cliente entero, no dos columnas: el ProcessContextBuilder
+            // necesita `resumen_documental`, y si la relacion ya viene cargada
+            // recortada su propio loadMissing la da por buena y la ficha no
+            // llega nunca. Falla en silencio, con el resumen saliendo pobre y
+            // sin ningun error que lo delate.
+            'client',
             'serviceType:id,nombre,modalidad',
             'abogadoLider:id,name',
             'apoderado:id,name',
@@ -95,6 +103,17 @@ class ProcessSummaryService
             fn ($c) => '- '.$c->created_at?->format('Y-m-d').': '.Str::limit($c->body, 300)
         )->implode("\n") ?: '(sin comentarios)';
 
+        // Si alguien edita la plantilla y se lleva por delante el placeholder,
+        // el contexto se anexa igualmente en vez de perderse en silencio.
+        if (! str_contains($template, '{{expediente_contexto}}')) {
+            $template .= '
+
+## Expediente completo
+
+{{expediente_contexto}}
+';
+        }
+
         return strtr($template, [
             '{{codigo}}' => $process->codigo ?? '',
             '{{titulo}}' => $process->titulo ?? '',
@@ -109,6 +128,12 @@ class ProcessSummaryService
             '{{etapas}}' => $etapas,
             '{{tareas}}' => $tareas,
             '{{comentarios}}' => $comentarios,
+
+            // Sin esto el resumen solo veia etapas, tareas y comentarios: te
+            // contaba como va la GESTION del caso y nada de que trata el caso.
+            // En un proceso importado de Drive —seis documentos y cero tareas,
+            // porque nadie ha trabajado en el dentro de la app— salia vacio.
+            '{{expediente_contexto}}' => $this->contexto->build($process),
         ]);
     }
 }
