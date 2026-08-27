@@ -139,6 +139,18 @@ const regenerateFicha = () => {
     });
 };
 
+// Trae de Drive lo que haya aparecido en la carpeta del cliente. El servidor
+// mira primero y solo encola si hay algo nuevo, asi que pulsarlo sin novedades
+// no cuesta nada — ver ClientDriveController.
+const syncingDrive = ref(false);
+const syncDrive = () => {
+    syncingDrive.value = true;
+    router.post(route('admin.clients.drive.sync', props.client.id), {}, {
+        preserveScroll: true,
+        onFinish: () => { syncingDrive.value = false; },
+    });
+};
+
 const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 // Render markdown mínimo de la ficha (encabezados, negritas, viñetas) — sin dependencias.
@@ -607,16 +619,31 @@ const contractEstadoVariants = {
                                 Resumen de todos los documentos, inyectado en el contexto de la IA al redactar sobre este cliente.
                                 <template v-if="client.resumen_documental_at"> · Actualizada {{ formatDate(client.resumen_documental_at) }}</template>
                             </p>
+                            <p v-if="client.drive_folder_id" class="mt-0.5 text-xs text-brand-400">
+                                Carpeta de Drive vinculada<template v-if="client.drive_synced_at"> · Última búsqueda {{ formatDate(client.drive_synced_at) }}</template>
+                            </p>
                         </div>
-                        <button
-                            v-if="can('ai.use')"
-                            type="button"
-                            @click="regenerateFicha"
-                            :disabled="regeneratingFicha"
-                            class="rounded-md border border-success-300 bg-white px-3 py-1.5 text-xs font-semibold text-success-800 shadow-sm hover:bg-success-50 disabled:opacity-50"
-                        >
-                            {{ regeneratingFicha ? 'Generando…' : (client.resumen_documental ? 'Regenerar' : 'Generar ahora') }}
-                        </button>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button
+                                v-if="can('documents.upload') && client.drive_folder_id"
+                                type="button"
+                                @click="syncDrive"
+                                :disabled="syncingDrive"
+                                class="rounded-md border border-info-300 bg-white px-3 py-1.5 text-xs font-semibold text-info-800 shadow-sm hover:bg-info-50 disabled:opacity-50"
+                                title="Busca en la carpeta de Drive del cliente y trae solo lo que sea nuevo"
+                            >
+                                {{ syncingDrive ? 'Buscando…' : 'Traer de Drive' }}
+                            </button>
+                            <button
+                                v-if="can('ai.use')"
+                                type="button"
+                                @click="regenerateFicha"
+                                :disabled="regeneratingFicha"
+                                class="rounded-md border border-success-300 bg-white px-3 py-1.5 text-xs font-semibold text-success-800 shadow-sm hover:bg-success-50 disabled:opacity-50"
+                            >
+                                {{ regeneratingFicha ? 'Generando…' : (client.resumen_documental ? 'Regenerar' : 'Generar ahora') }}
+                            </button>
+                        </div>
                     </div>
 
                     <div

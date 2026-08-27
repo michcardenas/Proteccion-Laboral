@@ -1,23 +1,24 @@
 <?php
 
 use App\Http\Controllers\Admin\AiGenerationController;
-use App\Http\Controllers\Admin\GmailIntegrationController;
 use App\Http\Controllers\Admin\ClientAssignmentController;
 use App\Http\Controllers\Admin\ClientContactController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\ClientDocumentController;
+use App\Http\Controllers\Admin\ClientDriveController;
 use App\Http\Controllers\Admin\ClientKnowledgeController;
 use App\Http\Controllers\Admin\ContractController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\EmailReviewController;
+use App\Http\Controllers\Admin\GmailIntegrationController;
+use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\PaymentReportController;
+use App\Http\Controllers\Admin\PlanImportController;
 use App\Http\Controllers\Admin\ProcessController;
+use App\Http\Controllers\Admin\ProcessEmailController;
 use App\Http\Controllers\Admin\ProcessStageController;
 use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\PlanImportController;
-use App\Http\Controllers\Admin\ProcessEmailController;
-use App\Http\Controllers\Admin\PaymentController;
-use App\Http\Controllers\Admin\PaymentReportController;
 use App\Http\Controllers\Admin\VisitController;
 use App\Http\Controllers\Auth\ClientSessionController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
@@ -64,6 +65,13 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:clients.view|clients.view_assigned')
             ->get('clients/{client}', [ClientController::class, 'show'])
             ->name('clients.show');
+
+        // Traer de Drive los documentos nuevos de un cliente, a peticion. Mira
+        // primero y solo encola si hay algo: consultar Drive es barato, rehacer
+        // la ficha no. Ver ClientDriveController.
+        Route::middleware('permission:documents.upload')
+            ->post('clients/{client}/drive/sync', [ClientDriveController::class, 'sync'])
+            ->name('clients.drive.sync');
 
         Route::middleware('permission:clients.create')->group(function () {
             Route::get('clients/create/new', [ClientController::class, 'create'])->name('clients.create');
