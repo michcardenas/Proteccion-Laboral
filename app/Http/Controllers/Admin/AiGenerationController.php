@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateAiDraft;
 use App\Models\AiGeneration;
 use App\Models\Comment;
 use App\Models\Document;
 use App\Models\Process;
 use App\Models\User;
-use App\Services\AiService;
 use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,8 +31,6 @@ class AiGenerationController extends Controller
         'draft_dictamen',
         'draft_comunicacion_cliente',
     ];
-
-    public function __construct(private readonly AiService $ai) {}
 
     /**
      * GET /admin/ai/playground
@@ -73,17 +71,16 @@ class AiGenerationController extends Controller
 
     /**
      * POST /admin/processes/{process}/ai/generate
-     * Genera un borrador IA con una plantilla, lo persiste en ai_generations
-     * y devuelve el texto al frontend en JSON.
+     * Encola la redacción del borrador y devuelve 202 con el id de la fila.
+     * El texto NO viaja en esta respuesta: se recoge sondeando `show`.
+     *
+     * Antes esto era síncrono y devolvía el borrador ya escrito. No cabía: una
+     * plantilla `draft_*` agota siempre los 4.096 tokens de salida (~80 s medidos
+     * en producción) y el gateway de Hostinger cortaba con un 504. Ver GenerateAiDraft.
      */
     public function store(Request $request, Process $process): JsonResponse
     {
         abort_unless($request->user()?->can('ai.use'), 403);
-
-        // La generación de un borrador legal puede tardar 30-90s con Sonnet y max_tokens altos.
-        // El default de PHP (max_execution_time = 60) nos cortaría con fatal error.
-        // Lo subimos a 180s solo para esta request.
-        set_time_limit(180);
 
         $validated = $request->validate([
             'template' => ['required', 'string', 'in:'.implode(',', self::ALLOWED_TEMPLATES)],
@@ -95,65 +92,102 @@ class AiGenerationController extends Controller
         // y loadMissing no recargaría la relación si ya viniera con columnas restringidas.
         $process->loadMissing(['client', 'serviceType']);
 
+        // El prompt se arma aquí, en la request, y no dentro del job: es trabajo de
+        // base de datos (unos pocos cientos de ms) y así un expediente que no se puede
+        // leer falla de cara al usuario en vez de morir mudo en la cola.
         $prompt = $this->renderTemplate(
             template: $validated['template'],
             process: $process,
             overrides: $validated['placeholders'] ?? [],
         );
 
-        try {
-            $result = $this->ai->generateDraft($prompt);
+        $generation = AiGeneration::create([
+            'user_id' => Auth::id(),
+            'contexto_tipo' => Process::class,
+            'contexto_id' => $process->id,
+            'proveedor' => 'anthropic',
+            'modelo' => config('anthropic.model'),
+            'prompt' => $prompt,
+            'estado' => 'pendiente',
+        ]);
 
-            $cost = $this->ai->estimateCost(
-                $result['usage']['input_tokens'],
-                $result['usage']['output_tokens'],
-                $result['model'],
-            );
+        GenerateAiDraft::dispatch($generation->id);
 
-            $generation = AiGeneration::create([
-                'user_id' => Auth::id(),
-                'contexto_tipo' => Process::class,
-                'contexto_id' => $process->id,
-                'proveedor' => 'anthropic',
-                'modelo' => $result['model'],
-                'request_hash' => $result['request_hash'],
-                'prompt' => $prompt,
-                'respuesta' => $result['text'],
-                'tokens_in' => $result['usage']['input_tokens'],
-                'tokens_out' => $result['usage']['output_tokens'],
-                'latencia_ms' => $result['latencia_ms'],
-                'costo_usd' => $cost,
-                'estado' => 'ok',
-            ]);
+        return response()->json([
+            'id' => $generation->id,
+            'estado' => 'pendiente',
+        ], 202);
+    }
 
-            return response()->json([
-                'id' => $generation->id,
-                'borrador' => $result['text'],
-                'modelo' => $result['model'],
-                'tokens' => $result['usage'],
-                'costo_usd' => $cost,
-                'latencia_ms' => $result['latencia_ms'],
-            ]);
-        } catch (Throwable $e) {
-            // Persistir el fallo para análisis posterior
-            AiGeneration::create([
-                'user_id' => Auth::id(),
-                'contexto_tipo' => Process::class,
-                'contexto_id' => $process->id,
-                'proveedor' => 'anthropic',
-                'modelo' => config('anthropic.model'),
-                'prompt' => $prompt,
-                'estado' => 'error',
-                'error_mensaje' => $e->getMessage(),
-            ]);
+    /**
+     * GET /admin/processes/{process}/ai/generations/{generation}
+     * Estado de una generación encolada. La pantalla lo sondea hasta que deja
+     * de estar `pendiente`.
+     */
+    public function show(Request $request, Process $process, AiGeneration $generation): JsonResponse
+    {
+        abort_unless($request->user()?->can('ai.use'), 403);
 
-            report($e);
+        // Una generación solo se consulta desde el proceso al que pertenece: sin esto,
+        // el id de la URL serviría para leer el borrador de cualquier otro expediente.
+        abort_unless(
+            $generation->contexto_tipo === Process::class && $generation->contexto_id === $process->id,
+            404
+        );
 
-            return response()->json([
-                'error' => 'No se pudo generar el borrador.',
-                'detail' => app()->environment('production') ? null : $e->getMessage(),
-            ], 502);
+        return response()->json([
+            'id' => $generation->id,
+            'estado' => $generation->estado,
+            'borrador' => $generation->respuesta,
+            'modelo' => $generation->modelo,
+            'tokens' => [
+                'input_tokens' => $generation->tokens_in,
+                'output_tokens' => $generation->tokens_out,
+            ],
+            'costo_usd' => (float) $generation->costo_usd,
+            'latencia_ms' => $generation->latencia_ms,
+            'error' => $generation->estado === 'error'
+                ? (app()->environment('production') ? 'No se pudo generar el borrador.' : $generation->error_mensaje)
+                : null,
+        ]);
+    }
+
+    /** Caracteres del correo que se inyecta como comunicación a la que se responde. */
+    public const MAX_CORREO_RESPONDIDO = 6000;
+
+    /**
+     * Rellena los marcadores que quedaron sin valor tras aplicar los del proceso y la pantalla.
+     *
+     * `{{original_complaint}}` recibe el último correo que llegó al proceso: es a lo que
+     * responde casi siempre una contestación que se pide desde la ficha, y el expediente
+     * solo trae los correos recortados a 600 caracteres. El resto se sustituye por una
+     * instrucción explícita — un `{{facts}}` literal no le dice nada útil al modelo, y
+     * dejarlo vacío lo empuja a inventarse los hechos.
+     */
+    protected function rellenarPlaceholdersSobrantes(string $rendered, Process $process): string
+    {
+        if (str_contains($rendered, '{{original_complaint}}')) {
+            $correo = $process->emailIngestions()->latest('received_at')->first();
+
+            $rendered = str_replace('{{original_complaint}}', $correo
+                ? implode("\n", [
+                    'Último correo recibido en el proceso (asume que es al que se responde, salvo que el contexto adicional diga otra cosa):',
+                    '',
+                    '- **De:** '.$correo->from,
+                    '- **Asunto:** '.$correo->subject,
+                    '- **Recibido:** '.($correo->received_at?->format('Y-m-d H:i') ?? '—'),
+                    '',
+                    Str::limit(trim((string) $correo->body_text), self::MAX_CORREO_RESPONDIDO),
+                ])
+                : '(No hay correos en el proceso. Toma la comunicación a responder del contexto adicional; si no aparece, márcalo con [FALTA: comunicación a la que se responde].)',
+                $rendered);
         }
+
+        return preg_replace(
+            '/\{\{[a-z_]+\}\}/',
+            '(no indicado: dedúcelo del expediente y del contexto adicional; si no aparece, márcalo con [FALTA: …])',
+            $rendered
+        );
     }
 
     /**
@@ -422,6 +456,11 @@ class AiGenerationController extends Controller
 
         $contenido = file_get_contents($path);
         $rendered = strtr($contenido, $replacements);
+
+        // Lo que la pantalla no manda. El modal solo envía `contexto_adicional`, así que
+        // `{{stance}}`, `{{facts}}`, `{{original_complaint}}`… le llegaban a Claude con las
+        // llaves puestas: en una contestación, el modelo no veía a qué estaba respondiendo.
+        $rendered = $this->rellenarPlaceholdersSobrantes($rendered, $process);
 
         // Red de seguridad: si la plantilla no incluye el placeholder {{expediente_contexto}}
         // (p. ej. una plantilla nueva sin actualizar), anexamos el contexto para no perderlo.

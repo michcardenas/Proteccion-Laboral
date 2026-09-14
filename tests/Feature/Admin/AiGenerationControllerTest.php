@@ -2,18 +2,25 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Jobs\GenerateAiDraft;
 use App\Models\AiGeneration;
 use App\Models\Client;
 use App\Models\Comment;
 use App\Models\Document;
+use App\Models\EmailIngestion;
 use App\Models\Process;
 use App\Models\ServiceType;
 use App\Models\User;
+use App\Services\AiService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
+use Throwable;
 
 class AiGenerationControllerTest extends TestCase
 {
@@ -41,22 +48,26 @@ class AiGenerationControllerTest extends TestCase
     /**
      * Crea un proceso con cliente y service_type ad-hoc (sin depender de un factory inexistente).
      */
-    protected function makeProcess(): Process
+    protected function makeProcess(string $codigo = 'PL-TEST-001'): Process
     {
-        $serviceType = ServiceType::create([
-            'nombre' => 'Proceso Ordinario Laboral',
-            'slug' => 'proceso-ordinario-laboral',
-            'descripcion' => 'Tipo de servicio para tests',
-            'modalidad' => 'judicial',
-            'es_activo' => true,
-        ]);
+        // firstOrCreate y no create: el slug es unico, y hay tests que necesitan
+        // dos procesos distintos dentro del mismo caso.
+        $serviceType = ServiceType::firstOrCreate(
+            ['slug' => 'proceso-ordinario-laboral'],
+            [
+                'nombre' => 'Proceso Ordinario Laboral',
+                'descripcion' => 'Tipo de servicio para tests',
+                'modalidad' => 'judicial',
+                'es_activo' => true,
+            ]
+        );
 
         $client = Client::factory()->create();
 
         return Process::factory()->create([
             'client_id' => $client->id,
             'service_type_id' => $serviceType->id,
-            'codigo' => 'PL-TEST-001',
+            'codigo' => $codigo,
             'titulo' => 'Proceso de prueba',
         ]);
     }
@@ -81,11 +92,9 @@ class AiGenerationControllerTest extends TestCase
     // store — POST /admin/processes/{process}/ai/generate
     // ============================================================
 
-    public function test_user_with_ai_use_permission_can_generate_draft_and_persist_record(): void
+    public function test_generate_enqueues_the_draft_and_returns_pending_row(): void
     {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response($this->fakeClaudeResponse('Borrador de prueba.'), 200),
-        ]);
+        Queue::fake();
 
         $user = User::factory()->create(['is_active' => true]);
         $user->assignRole('abogado_interno'); // tiene ai.use
@@ -97,17 +106,16 @@ class AiGenerationControllerTest extends TestCase
                 'template' => 'draft_demanda',
                 'placeholders' => [
                     'facts' => 'El trabajador fue despedido sin justa causa.',
-                    'requested_claims' => 'Indemnización + cesantías.',
+                    'requested_claims' => 'Indemnizacion + cesantias.',
                 ],
             ]
         );
 
-        $response->assertStatus(200)
-            ->assertJsonStructure(['id', 'borrador', 'modelo', 'tokens' => ['input_tokens', 'output_tokens'], 'costo_usd', 'latencia_ms'])
-            ->assertJson([
-                'borrador' => 'Borrador de prueba.',
-                'modelo' => 'claude-sonnet-4-6',
-            ]);
+        // 202 y SIN borrador: el texto todavia no existe, se recoge sondeando.
+        $response->assertStatus(202)
+            ->assertJsonStructure(['id', 'estado'])
+            ->assertJson(['estado' => 'pendiente'])
+            ->assertJsonMissing(['borrador']);
 
         $this->assertDatabaseCount('ai_generations', 1);
 
@@ -116,15 +124,178 @@ class AiGenerationControllerTest extends TestCase
         $this->assertSame(Process::class, $generation->contexto_tipo);
         $this->assertSame($process->id, $generation->contexto_id);
         $this->assertSame('anthropic', $generation->proveedor);
+        $this->assertSame('pendiente', $generation->estado);
+        // El prompt ya esta persistido: el job no lo recibe por el payload.
+        $this->assertStringContainsString($process->codigo, $generation->prompt);
+        $this->assertNull($generation->respuesta);
+
+        Queue::assertPushed(GenerateAiDraft::class, fn ($job) => $job->generationId === $generation->id);
+    }
+
+    public function test_job_writes_the_draft_and_closes_the_row_as_ok(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response($this->fakeClaudeResponse('Borrador de prueba.'), 200),
+        ]);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+
+        $generation = $this->makePendingGeneration($user, $process);
+
+        (new GenerateAiDraft($generation->id))->handle(app(AiService::class));
+
+        $generation->refresh();
+        $this->assertSame('ok', $generation->estado);
+        $this->assertSame('Borrador de prueba.', $generation->respuesta);
         $this->assertSame('claude-sonnet-4-6', $generation->modelo);
         $this->assertSame(120, $generation->tokens_in);
         $this->assertSame(80, $generation->tokens_out);
-        $this->assertSame('ok', $generation->estado);
-        $this->assertNotNull($generation->request_hash);
-        $this->assertSame(64, strlen($generation->request_hash));
         $this->assertNotNull($generation->latencia_ms);
+        $this->assertSame(64, strlen($generation->request_hash));
         // Costo: (120/1M * $3) + (80/1M * $15) = 0.00036 + 0.0012 = 0.00156
         $this->assertEqualsWithDelta(0.00156, (float) $generation->costo_usd, 1e-6);
+    }
+
+    public function test_job_does_not_redo_a_row_that_is_no_longer_pending(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response($this->fakeClaudeResponse('No deberia llamarse.'), 200),
+        ]);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+
+        $generation = $this->makePendingGeneration($user, $process);
+        $generation->update(['estado' => 'ok', 'respuesta' => 'Borrador ya escrito.']);
+
+        (new GenerateAiDraft($generation->id))->handle(app(AiService::class));
+
+        // Sin esta guarda, un reintento de la cola volveria a pagar la misma llamada.
+        Http::assertNothingSent();
+        $this->assertSame('Borrador ya escrito.', $generation->fresh()->respuesta);
+    }
+
+    public function test_failed_job_closes_the_row_as_error_so_the_screen_stops_polling(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+
+        $generation = $this->makePendingGeneration($user, $process);
+
+        (new GenerateAiDraft($generation->id))->failed(new RuntimeException('Anthropic sobrecargado'));
+
+        $generation->refresh();
+        $this->assertSame('error', $generation->estado);
+        $this->assertStringContainsString('Anthropic sobrecargado', $generation->error_mensaje);
+    }
+
+    /**
+     * El recorrido completo tal y como lo vive la pantalla: encolar, dejar que el
+     * worker lo procese, y recoger el borrador sondeando.
+     *
+     * Usa la cola `database` de verdad (no Queue::fake) a proposito: asi se ejercita
+     * la serializacion del job, que es donde se rompen estas cosas al desplegar.
+     */
+    public function test_full_round_trip_enqueue_work_and_poll(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response($this->fakeClaudeResponse('Contestacion redactada.'), 200),
+        ]);
+        config()->set('queue.default', 'database');
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('abogado_interno');
+        $process = $this->makeProcess();
+
+        $id = $this->actingAs($user)
+            ->postJson(route('admin.processes.ai.generate', $process), ['template' => 'draft_respuesta'])
+            ->assertStatus(202)
+            ->json('id');
+
+        $ruta = route('admin.processes.ai.show', ['process' => $process, 'generation' => $id]);
+
+        // Mientras el worker no pasa, la pantalla sigue viendo `pendiente`.
+        $this->assertDatabaseCount('jobs', 1);
+        $this->actingAs($user)->getJson($ruta)->assertJson(['estado' => 'pendiente', 'borrador' => null]);
+
+        Artisan::call('queue:work', ['--once' => true, '--no-interaction' => true]);
+
+        $this->actingAs($user)->getJson($ruta)
+            ->assertStatus(200)
+            ->assertJson(['estado' => 'ok', 'borrador' => 'Contestacion redactada.']);
+
+        $this->assertDatabaseCount('jobs', 0);
+    }
+
+    // ============================================================
+    // show - GET /admin/processes/{process}/ai/generations/{generation}
+    // ============================================================
+
+    public function test_show_returns_the_state_of_a_generation(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+
+        $generation = $this->makePendingGeneration($user, $process);
+
+        $this->actingAs($user)
+            ->getJson(route('admin.processes.ai.show', ['process' => $process, 'generation' => $generation]))
+            ->assertStatus(200)
+            ->assertJson(['id' => $generation->id, 'estado' => 'pendiente', 'borrador' => null]);
+
+        $generation->update(['estado' => 'ok', 'respuesta' => 'Ya esta listo.']);
+
+        $this->actingAs($user)
+            ->getJson(route('admin.processes.ai.show', ['process' => $process, 'generation' => $generation]))
+            ->assertStatus(200)
+            ->assertJson(['estado' => 'ok', 'borrador' => 'Ya esta listo.']);
+    }
+
+    public function test_show_does_not_leak_a_generation_from_another_process(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+        $otro = $this->makeProcess('PL-TEST-002');
+
+        $generation = $this->makePendingGeneration($user, $otro);
+
+        $this->actingAs($user)
+            ->getJson(route('admin.processes.ai.show', ['process' => $process, 'generation' => $generation]))
+            ->assertStatus(404);
+    }
+
+    public function test_show_forbidden_without_ai_use(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('cliente'); // sin ai.use
+        $process = $this->makeProcess();
+        $generation = $this->makePendingGeneration($user, $process);
+
+        $this->actingAs($user)
+            ->getJson(route('admin.processes.ai.show', ['process' => $process, 'generation' => $generation]))
+            ->assertStatus(403);
+    }
+
+    /**
+     * Fila recien encolada, tal y como la deja `store`.
+     */
+    protected function makePendingGeneration(User $user, Process $process): AiGeneration
+    {
+        return AiGeneration::create([
+            'user_id' => $user->id,
+            'contexto_tipo' => Process::class,
+            'contexto_id' => $process->id,
+            'proveedor' => 'anthropic',
+            'modelo' => 'claude-sonnet-4-6',
+            'prompt' => 'Redacta un borrador para '.$process->codigo,
+            'estado' => 'pendiente',
+        ]);
     }
 
     public function test_user_without_ai_use_permission_is_forbidden(): void
@@ -167,25 +338,24 @@ class AiGenerationControllerTest extends TestCase
         $user->assignRole('director');
         $process = $this->makeProcess();
 
-        $response = $this->actingAs($user)->postJson(
-            route('admin.processes.ai.generate', $process),
-            ['template' => 'draft_dictamen']
-        );
+        $generation = $this->makePendingGeneration($user, $process);
 
-        $response->assertStatus(502)
-            ->assertJsonStructure(['error']);
+        // El job propaga para que la cola lo marque fallido; `failed()` cierra la fila.
+        try {
+            (new GenerateAiDraft($generation->id))->handle(app(AiService::class));
+            $this->fail('Se esperaba que el job propagara el fallo de Anthropic.');
+        } catch (Throwable $e) {
+            (new GenerateAiDraft($generation->id))->failed($e);
+        }
 
-        $this->assertDatabaseCount('ai_generations', 1);
-        $generation = AiGeneration::first();
+        $generation->refresh();
         $this->assertSame('error', $generation->estado);
         $this->assertNotNull($generation->error_mensaje);
     }
 
     public function test_placeholders_from_process_are_injected_into_prompt(): void
     {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response($this->fakeClaudeResponse(), 200),
-        ]);
+        Queue::fake();
 
         $user = User::factory()->create(['is_active' => true]);
         $user->assignRole('director');
@@ -205,6 +375,60 @@ class AiGenerationControllerTest extends TestCase
         // Y que los marcadores fueron reemplazados (no quedan {{...}} en el prompt)
         $this->assertStringNotContainsString('{{process_code}}', $generation->prompt);
         $this->assertStringNotContainsString('{{client_name}}', $generation->prompt);
+    }
+
+    public function test_no_placeholder_reaches_claude_with_its_braces(): void
+    {
+        Queue::fake();
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+
+        foreach (['draft_demanda', 'draft_respuesta', 'draft_dictamen', 'draft_comunicacion_cliente'] as $template) {
+            $this->actingAs($user)->postJson(
+                route('admin.processes.ai.generate', $process),
+                ['template' => $template]
+            )->assertStatus(202);
+        }
+
+        foreach (AiGeneration::all() as $generation) {
+            $this->assertDoesNotMatchRegularExpression('/\{\{[a-z_]+\}\}/', $generation->prompt);
+            $this->assertStringContainsString('[FALTA', $generation->prompt);
+        }
+    }
+
+    public function test_respuesta_receives_the_latest_email_as_the_communication_answered(): void
+    {
+        Queue::fake();
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('director');
+        $process = $this->makeProcess();
+
+        foreach ([['viejo', now()->subDays(3), 'Correo antiguo que no toca.'], ['nuevo', now(), 'Accion Persuasiva No. 02 de Colpensiones.']] as [$id, $fecha, $cuerpo]) {
+            EmailIngestion::create([
+                'message_id' => 'msg-'.$id,
+                'from' => 'Colpensiones <notificaciones@colpensiones.gov.co>',
+                'to' => 'automatizacion@proteccionlaboral.co',
+                'subject' => 'Asunto '.$id,
+                'received_at' => $fecha,
+                'raw_payload' => [],
+                'body_text' => $cuerpo,
+                'status' => EmailIngestion::STATUS_PROCESSED,
+                'process_id' => $process->id,
+            ]);
+        }
+
+        $this->actingAs($user)->postJson(
+            route('admin.processes.ai.generate', $process),
+            ['template' => 'draft_respuesta']
+        )->assertStatus(202);
+
+        $prompt = AiGeneration::first()->prompt;
+        $this->assertStringContainsString('Accion Persuasiva No. 02 de Colpensiones.', $prompt);
+        $this->assertStringContainsString('Asunto nuevo', $prompt);
+        $this->assertStringNotContainsString('{{original_complaint}}', $prompt);
     }
 
     // ============================================================

@@ -221,6 +221,12 @@ Route::middleware(['auth', 'verified'])
             ->post('processes/{process}/ai/generate', [AiGenerationController::class, 'store'])
             ->name('processes.ai.generate');
 
+        // La generacion es asincrona: `store` encola y devuelve 202, y la pantalla
+        // sondea esta ruta hasta que la fila deja de estar `pendiente`.
+        Route::middleware('permission:ai.use')
+            ->get('processes/{process}/ai/generations/{generation}', [AiGenerationController::class, 'show'])
+            ->name('processes.ai.show');
+
         Route::middleware('permission:ai.use')
             ->post('processes/{process}/ai/document', [AiGenerationController::class, 'storeAsDocument'])
             ->name('processes.ai.document');
