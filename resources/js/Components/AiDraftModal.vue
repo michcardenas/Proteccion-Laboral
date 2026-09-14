@@ -5,6 +5,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Checkbox from '@/Components/Checkbox.vue';
+import { generarBorrador } from '@/Composables/useAiDraft';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -39,6 +40,7 @@ const contexto = ref('');
 
 const loading = ref(false);
 const error = ref(null);
+const segundos = ref(0);
 
 // Resultado editable
 const borrador = ref('');
@@ -66,6 +68,7 @@ function resetAll() {
     borrador.value = '';
     generationId.value = null;
     error.value = null;
+    segundos.value = 0;
     successMsg.value = null;
     docNombre.value = '';
     docVisibleCliente.value = false;
@@ -88,27 +91,30 @@ function describeError(e) {
         if (data.message) return data.message;
         return `HTTP ${e.response.status}`;
     }
-    return `Error de red: ${e.message}`;
+    return e.message ?? 'Error inesperado.';
 }
 
 async function generar() {
     error.value = null;
     successMsg.value = null;
     loading.value = true;
+    segundos.value = 0;
+    const cronometro = setInterval(() => { segundos.value += 1; }, 1000);
     try {
-        const url = route('admin.processes.ai.generate', { process: props.process.id });
-        const { data } = await window.axios.post(url, {
+        // Encola y espera: la generación no es síncrona. Ver useAiDraft.
+        const resultado = await generarBorrador(props.process.id, {
             template: selectedTemplate.value,
             placeholders: { contexto_adicional: contexto.value },
         });
-        borrador.value = data.borrador ?? '';
-        generationId.value = data.id ?? null;
+        generationId.value = resultado.id ?? null;
+        borrador.value = resultado.borrador ?? '';
         if (!docNombre.value) {
             docNombre.value = `${labelFor(selectedTemplate.value)} — ${props.process.codigo}`;
         }
     } catch (e) {
         error.value = describeError(e);
     } finally {
+        clearInterval(cronometro);
         loading.value = false;
     }
 }
@@ -200,7 +206,9 @@ async function guardarComoComentario() {
                     <PrimaryButton :disabled="loading" @click="generar">
                         {{ loading ? 'Generando…' : (hasResult ? 'Regenerar' : 'Generar') }}
                     </PrimaryButton>
-                    <span v-if="loading" class="text-sm text-brand-500">Llamando a Claude (5–30s)…</span>
+                    <span v-if="loading" class="text-sm text-brand-500">
+                        Redactando… suele tardar cerca de un minuto y medio ({{ segundos }}s). Puedes dejar esta ventana abierta.
+                    </span>
                 </div>
 
                 <!-- Error / éxito -->

@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateAiDraft;
 use App\Models\AiGeneration;
 use App\Models\EmailIngestion;
 use App\Models\Process;
-use App\Services\AiService;
 use App\Services\GmailService;
 use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
@@ -22,59 +22,45 @@ use Throwable;
 class ProcessEmailController extends Controller
 {
     public function __construct(
-        private readonly AiService $ai,
         private readonly GmailService $gmail,
         private readonly ProcessContextBuilder $context,
     ) {}
 
     /**
      * POST /admin/processes/{process}/emails/{ingestion}/draft
-     * Genera con IA un borrador de respuesta al correo (no envía nada).
+     * Encola la redacción de la respuesta al correo (no envía nada) y devuelve 202
+     * con el id de la fila. El texto se recoge sondeando `admin.processes.ai.show`.
+     *
+     * Hoy una respuesta a correo cabe (~23 s medidos en producción), pero el prompt
+     * lleva el cuerpo entero del correo más el expediente: un hilo largo la habría
+     * llevado al mismo 504 que tumbaba los borradores. Ver GenerateAiDraft.
      */
     public function draft(Request $request, Process $process, EmailIngestion $ingestion): JsonResponse
     {
         abort_unless($request->user()?->can('ai.use'), 403);
         abort_unless($ingestion->process_id === $process->id, 404);
 
-        set_time_limit(180);
-
         // Columnas completas para que el ProcessContextBuilder disponga del cliente sin restricción.
         $process->loadMissing(['client', 'serviceType']);
 
         $prompt = $this->buildDraftPrompt($process, $ingestion, $request->string('instrucciones')->toString());
 
-        try {
-            $result = $this->ai->generateDraft($prompt);
+        $generation = AiGeneration::create([
+            'user_id' => Auth::id(),
+            'contexto_tipo' => Process::class,
+            'contexto_id' => $process->id,
+            'proveedor' => 'anthropic',
+            'modelo' => config('anthropic.model'),
+            'prompt' => $prompt,
+            'estado' => 'pendiente',
+        ]);
 
-            AiGeneration::create([
-                'user_id' => Auth::id(),
-                'contexto_tipo' => Process::class,
-                'contexto_id' => $process->id,
-                'proveedor' => 'anthropic',
-                'modelo' => $result['model'],
-                'request_hash' => $result['request_hash'],
-                'prompt' => $prompt,
-                'respuesta' => $result['text'],
-                'tokens_in' => $result['usage']['input_tokens'],
-                'tokens_out' => $result['usage']['output_tokens'],
-                'latencia_ms' => $result['latencia_ms'],
-                'costo_usd' => $this->ai->estimateCost(
-                    $result['usage']['input_tokens'],
-                    $result['usage']['output_tokens'],
-                    $result['model'],
-                ),
-                'estado' => 'ok',
-            ]);
+        GenerateAiDraft::dispatch($generation->id);
 
-            return response()->json(['borrador' => trim($result['text'])]);
-        } catch (Throwable $e) {
-            report($e);
-
-            return response()->json([
-                'error' => 'No se pudo generar el borrador.',
-                'detail' => app()->environment('production') ? null : $e->getMessage(),
-            ], 502);
-        }
+        return response()->json([
+            'id' => $generation->id,
+            'estado' => 'pendiente',
+        ], 202);
     }
 
     /**

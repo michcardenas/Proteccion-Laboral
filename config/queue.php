@@ -40,7 +40,11 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // 300 y no 90: la redaccion de un borrador largo tarda ~80 s y algun pico
+            // pasa de 90. Con el default, el worker daba el job por colgado y lo volvia
+            // a lanzar — pagando la misma llamada dos veces. Debe ser mayor que el
+            // `$timeout` de GenerateAiDraft.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 300),
             'after_commit' => false,
         ],
 

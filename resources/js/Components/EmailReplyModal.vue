@@ -6,6 +6,7 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import InfoNote from '@/Components/InfoNote.vue';
+import { esperarGeneracion } from '@/Composables/useAiDraft';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -60,16 +61,18 @@ function describeError(e) {
         if (d.message) return d.message;
         return `HTTP ${e.response.status}`;
     }
-    return `Error de red: ${e.message}`;
+    return e.message ?? 'Error inesperado.';
 }
 
 async function redactarIA() {
     error.value = null;
     redactando.value = true;
     try {
+        // La ruta encola y responde 202; el texto se espera sondeando. Ver useAiDraft.
         const url = route('admin.processes.emails.draft', { process: props.process.id, ingestion: props.email.id });
         const { data } = await window.axios.post(url, { instrucciones: instrucciones.value });
-        body.value = data.borrador ?? '';
+        const resultado = await esperarGeneracion(props.process.id, data.id);
+        body.value = (resultado.borrador ?? '').trim();
     } catch (e) {
         error.value = describeError(e);
     } finally {

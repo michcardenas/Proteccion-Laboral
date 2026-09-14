@@ -7,6 +7,7 @@ import PageHeader from '@/Components/PageHeader.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
+import { generarBorrador } from '@/Composables/useAiDraft';
 
 const props = defineProps({
     processes: { type: Array, required: true },
@@ -46,12 +47,11 @@ async function generar() {
     }
 
     try {
-        const url = route('admin.processes.ai.generate', { process: selectedProcessId.value });
-        const { data } = await window.axios.post(url, {
+        // Encola y espera a que el worker escriba el borrador. Ver useAiDraft.
+        result.value = await generarBorrador(selectedProcessId.value, {
             template: selectedTemplate.value,
             placeholders,
         });
-        result.value = data;
     } catch (e) {
         if (e.response) {
             const data = e.response.data ?? {};
@@ -61,7 +61,7 @@ async function generar() {
                 ? `${data.message}`
                 : `HTTP ${e.response.status}: ${JSON.stringify(data)}`;
         } else {
-            error.value = `Error de red: ${e.message}`;
+            error.value = e.message ?? 'Error inesperado.';
         }
     } finally {
         loading.value = false;
@@ -149,7 +149,7 @@ function copiarBorrador() {
                             {{ loading ? 'Generando…' : 'Generar borrador' }}
                         </PrimaryButton>
                         <span v-if="loading" class="text-sm text-brand-500">
-                            Llamando a Claude (puede tardar 5-30s)…
+                            Redactando… un borrador completo suele tardar cerca de un minuto y medio.
                         </span>
                     </div>
 

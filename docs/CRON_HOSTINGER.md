@@ -54,6 +54,63 @@ esa restricción, por eso es el recomendado.
 
 ---
 
+---
+
+## Los borradores de IA TAMBIÉN dependen de la cola
+
+Desde el 14-sep-2026 la generación de borradores **ya no es síncrona**, ni la de la
+ficha del proceso (`AiGenerationController::store`) ni la respuesta a un correo
+(`ProcessEmailController::draft`). Las dos crean la fila en `pendiente`, despachan
+`GenerateAiDraft` y devuelven `202` con el id de la fila, y la pantalla sondea `GET /admin/processes/{p}/ai/generations/{id}` hasta que el
+estado deja de ser `pendiente`.
+
+**Sin worker, el botón se queda girando para siempre.** Antes al menos daba un error;
+ahora no da ninguno, así que si alguien reporta «se queda generando y nunca termina»,
+lo primero que hay que mirar es si el cron del worker está vivo:
+
+```
+SELECT count(*) FROM jobs;   -- si crece y no baja, no hay worker
+```
+
+### Por qué se hizo asíncrono
+
+Las cuatro plantillas `draft_*` piden un escrito jurídico completo, así que el modelo
+**agota siempre los 4.096 tokens de salida**. Medido contra producción el 14-sep-2026
+sobre el proceso `PL-INBOX-20260827-BG0U`:
+
+```
+prompt 39.237 caracteres | 82,1 s | tokens_out=4.096 | stop_reason=max_tokens
+```
+
+Son ~80 segundos fijos, independientes del tamaño del expediente (el cuello es la
+salida, no la entrada). El gateway de Hostinger cortaba muchísimo antes con un **504
+seco**, y además mataba el proceso PHP: el `catch` del controller no llegaba a correr,
+así que el intento **no dejaba ni rastro en `ai_generations`** — se pagaba la llamada
+y no quedaba registro. El `set_time_limit(180)` del controller no servía de nada: sube
+el límite de PHP, no el del proxy.
+
+### Requisitos del worker
+
+- **`QUEUE_CONNECTION=database`** en el `.env` (ya está en producción).
+- **El cron del worker** de la Opción B de más abajo. Un solo worker basta: el mismo
+  que procesa `ProcessInboundEmail` procesa los borradores.
+- **`DB_QUEUE_RETRY_AFTER` debe ser mayor que el `$timeout` del job** (300 s). El
+  default de Laravel eran 90 s, y con un job de 82 s cualquier pico hacía que el worker
+  lo diera por colgado y lo relanzara — **pagando la misma llamada dos veces**. Por eso
+  `config/queue.php` ahora trae 300.
+- El `--timeout` del worker NO hay que tocarlo: `GenerateAiDraft::$timeout = 300` manda
+  sobre la opción del worker. Lo mismo con `--tries`: el job fuerza `$tries = 1` porque
+  un reintento automático vuelve a pagar la generación entera.
+
+### En local
+
+Con `QUEUE_CONNECTION=sync` (el default del `.env` de desarrollo) el `dispatch` corre
+inline: la ruta tarda los ~80 s en responder el `202` y luego el sondeo encuentra el
+borrador ya hecho. Funciona, pero no reproduce el comportamiento real. Para probarlo de
+verdad, `QUEUE_CONNECTION=database` y un `php artisan queue:work` a mano.
+
+---
+
 ## Opción B — Cola `database` (desacoplada, más resiliente)
 
 Mejor si la clasificación con IA llega a tardar (reintentos 429/529) y no quieres
