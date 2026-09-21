@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ContractController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\EmailReviewController;
 use App\Http\Controllers\Admin\GmailIntegrationController;
+use App\Http\Controllers\Admin\LegalPageAdminController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Admin\PaymentReportController;
 use App\Http\Controllers\Admin\PlanImportController;
@@ -21,20 +22,29 @@ use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VisitController;
 use App\Http\Controllers\Auth\ClientSessionController;
+use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+/*
+ * Portada. Era la pantalla de bienvenida de fábrica de Laravel —con los
+ * enlaces a la documentación del framework— y es lo primero que ve un cliente
+ * del despacho al escribir la dirección.
+ */
+Route::view('/', 'inicio')->name('inicio');
+
+/*
+ * Páginas legales, en abierto.
+ *
+ * Sin sesión a propósito: un titular de datos tiene que poder leer la política
+ * sin ser usuario, y el verificador de Google necesita abrir esta URL para
+ * aprobar los scopes de Gmail y Drive, que son restringidos.
+ */
+Route::get('/{slug}', [LegalPageController::class, 'show'])
+    ->whereIn('slug', ['politica-de-privacidad', 'terminos-y-condiciones'])
+    ->name('legal.show');
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
@@ -55,6 +65,14 @@ Route::middleware(['auth', 'verified'])
             Route::resource('users', UserController::class)->except(['show']);
             Route::patch('users/{user}/toggle-active', [UserController::class, 'toggleActive'])
                 ->name('users.toggle-active');
+
+            // Páginas legales: el texto lo escribe la dirección, sin desplegar.
+            Route::get('legales', [LegalPageAdminController::class, 'index'])
+                ->name('legales.index');
+            Route::get('legales/{legal}', [LegalPageAdminController::class, 'edit'])
+                ->name('legales.edit');
+            Route::put('legales/{legal}', [LegalPageAdminController::class, 'update'])
+                ->name('legales.update');
         });
 
         // Clientes — accesible por permiso

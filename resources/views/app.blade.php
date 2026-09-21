@@ -19,5 +19,18 @@
     </head>
     <body class="font-sans antialiased">
         @inertia
+
+        {{-- Enlace legal en TODAS las páginas, también la portada.
+             Google exige que la política de privacidad esté enlazada desde la
+             página principal para verificar los scopes de Gmail y Drive, y un
+             titular de datos tiene derecho a encontrarla sin buscarla. Va en
+             el Blade raíz y no en un componente de Vue para no obligar a
+             reconstruir `public/build` —que aquí se versiona— por dos
+             enlaces. --}}
+        <footer style="padding:1.25rem;text-align:center;font-size:.78rem;color:#94a3b8;font-family:Figtree,ui-sans-serif,system-ui,sans-serif">
+            <a href="{{ route('legal.show', 'politica-de-privacidad') }}" style="color:#64748b;text-decoration:none">Política de privacidad</a>
+            <span style="margin:0 .5rem">·</span>
+            <a href="{{ route('legal.show', 'terminos-y-condiciones') }}" style="color:#64748b;text-decoration:none">Términos y condiciones</a>
+        </footer>
     </body>
 </html>
