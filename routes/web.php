@@ -25,18 +25,15 @@ use App\Http\Controllers\Auth\ClientSessionController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+/*
+ * Portada. Era la pantalla de bienvenida de fábrica de Laravel —con los
+ * enlaces a la documentación del framework— y es lo primero que ve un cliente
+ * del despacho al escribir la dirección.
+ */
+Route::view('/', 'inicio')->name('inicio');
 
 /*
  * Páginas legales, en abierto.
