@@ -12,9 +12,16 @@ class AiService
      * input = costo por 1M tokens de entrada; output = costo por 1M tokens de salida.
      */
     public const PRICING = [
+        // Modelos actuales.
+        'claude-sonnet-5' => ['input' => 2.00,  'output' => 10.00],
+        'claude-opus-5' => ['input' => 5.00,  'output' => 25.00],
+        'claude-haiku-4-5' => ['input' => 1.00,  'output' => 5.00],
+
+        // Generaciones viejas que siguen en `ai_generations`: si se borran de
+        // aquí, la pantalla de uso revienta al calcular su costo —
+        // `estimateCost()` lanza con un modelo que no conoce.
         'claude-sonnet-4-6' => ['input' => 3.00,  'output' => 15.00],
-        'claude-opus-4-7' => ['input' => 15.00, 'output' => 75.00],
-        'claude-haiku-4-5' => ['input' => 0.80,  'output' => 4.00],
+        'claude-opus-4-7' => ['input' => 5.00,  'output' => 25.00],
     ];
 
     /**
@@ -51,7 +58,7 @@ class AiService
      *
      * @param  string  $prompt  User prompt / instruction.
      * @param  string|null  $systemPrompt  Optional system message to steer the model.
-     * @param  array  $options  Overrides: model, max_tokens, temperature, metadata,
+     * @param  array  $options  Overrides: model, max_tokens, metadata,
      *                          timeout, e `images` (lista de
      *                          ['media_type' => 'image/png', 'data' => base64]).
      * @return array{
@@ -101,10 +108,13 @@ class AiService
             $payload['system'] = $systemPrompt;
         }
 
-        if (isset($options['temperature'])) {
-            $payload['temperature'] = $options['temperature'];
-        }
-
+        // Ojo: NO se manda `temperature` (ni `top_p`/`top_k`). Los modelos
+        // actuales —Sonnet 5 en adelante— RECHAZAN los parámetros de muestreo
+        // con un 400, así que mandarlos no es una preferencia de estilo: es
+        // tumbar la petición entera. Lo que antes se buscaba con
+        // `temperature: 0` (que la clasificación de correos devolviera JSON
+        // estable) se sostiene con el prompt, `parseJsonResponse` y el umbral
+        // de confianza, que ante la duda manda el correo a revisión humana.
         if (isset($options['metadata'])) {
             $payload['metadata'] = $options['metadata'];
         }
@@ -184,7 +194,7 @@ class AiService
     {
         $prompt = $this->renderClassifyEmailPrompt($payload, $context);
 
-        $response = $this->generateDraft($prompt, null, ['temperature' => 0.0]);
+        $response = $this->generateDraft($prompt);
 
         $parsed = $this->parseJsonResponse($response['text']);
 
@@ -234,7 +244,7 @@ class AiService
     {
         $prompt = $this->renderExtractWorkPlanPrompt($documentText, $context);
 
-        $response = $this->generateDraft($prompt, null, ['temperature' => 0.0]);
+        $response = $this->generateDraft($prompt);
 
         $parsed = $this->parseJsonResponse($response['text']);
 

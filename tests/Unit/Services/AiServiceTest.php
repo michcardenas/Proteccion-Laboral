@@ -111,8 +111,48 @@ class AiServiceTest extends TestCase
     {
         $ai = new AiService;
 
-        // 1M+1M Haiku: 0.80 + 4.00 = 4.80
-        $this->assertEqualsWithDelta(4.80, $ai->estimateCost(1_000_000, 1_000_000, 'claude-haiku-4-5'), 1e-9);
+        // 1M+1M Haiku: 1.00 + 5.00 = 6.00
+        $this->assertEqualsWithDelta(6.00, $ai->estimateCost(1_000_000, 1_000_000, 'claude-haiku-4-5'), 1e-9);
+    }
+
+    /**
+     * El modelo que usa hoy la plataforma tiene que estar tarifado.
+     *
+     * `estimateCost()` LANZA con un modelo que no conoce, y `GenerateAiDraft`
+     * lo llama DESPUÉS de haber pagado la generación: un modelo sin tarifa
+     * convierte un borrador correcto —y cobrado— en un job en error.
+     */
+    public function test_el_modelo_configurado_siempre_tiene_tarifa(): void
+    {
+        $ai = new AiService;
+
+        $this->assertGreaterThan(0, $ai->estimateCost(1_000, 1_000, config('anthropic.model')));
+
+        // 1M+1M Sonnet 5: 2.00 + 10.00 = 12.00
+        $this->assertEqualsWithDelta(12.00, $ai->estimateCost(1_000_000, 1_000_000, 'claude-sonnet-5'), 1e-9);
+    }
+
+    /**
+     * Los modelos actuales rechazan los parámetros de muestreo con un 400.
+     */
+    public function test_no_se_envia_temperature_en_la_peticion(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'ok']],
+            'model' => 'claude-sonnet-5',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ], 200)]);
+
+        (new AiService(apiKey: 'test'))->generateDraft('hola', null, ['temperature' => 0.0]);
+
+        Http::assertSent(function ($request) {
+            $cuerpo = $request->data();
+
+            return ! array_key_exists('temperature', $cuerpo)
+                && ! array_key_exists('top_p', $cuerpo)
+                && ! array_key_exists('top_k', $cuerpo);
+        });
     }
 
     public function test_estimate_cost_unknown_model_throws(): void
