@@ -105,8 +105,16 @@ class GmailIntegrationController extends Controller
             ->orderBy('id')
             ->get();
 
+        // Solo pregunta a Google por las caducadas: una vigente responde sin red.
+        // `false` = Google rechaza la autorizacion y hay que volver a conectar;
+        // `null` = no se pudo comprobar, y eso no se pinta como desconectada.
+        $autorizada = $tokens->mapWithKeys(fn (IntegrationToken $t) => [
+            $t->id => $this->gmail->sigueAutorizada($t),
+        ]);
+
         $cuentas = $tokens->map(fn (IntegrationToken $t) => [
             'id' => $t->id,
+            'necesita_reconectar' => $autorizada[$t->id] === false,
             'account_email' => $t->account_email,
             'scopes' => $t->scopes,
             'expires_at' => $t->expires_at?->toIso8601String(),
@@ -126,6 +134,7 @@ class GmailIntegrationController extends Controller
             'cuentas' => $cuentas,
             'connection' => $token ? [
                 'connected' => true,
+                'necesita_reconectar' => $autorizada[$token->id] === false,
                 'id' => $token->id,
                 'account_email' => $token->account_email,
                 'scopes' => $token->scopes,

@@ -263,4 +263,108 @@ class GmailServiceTest extends TestCase
         $this->assertSame('offline', $q['access_type'] ?? null, 'hace falta para el refresh token');
         $this->assertStringContainsString('drive.readonly', $q['scope'] ?? '');
     }
+
+    // === reconectar sin cambiar de dueño ===
+
+    /**
+     * Reconectar renueva la autorizacion; la cuenta sigue siendo de quien la
+     * conecto. Si pasara a quien hace clic, al borrar a ese usuario la conexion
+     * se iria con el (cascadeOnDelete) y el correo dejaria de entrar sin avisar.
+     */
+    public function test_reconectar_una_cuenta_conserva_a_su_duena(): void
+    {
+        $carlos = User::factory()->create();
+        $quienReconecta = User::factory()->create();
+        IntegrationToken::create([
+            'provider' => IntegrationToken::PROVIDER_GMAIL,
+            'account_email' => 'automatizacion@proteccionlaboral.co',
+            'access_token' => 'viejo',
+            'refresh_token' => 'rt-viejo',
+            'expires_at' => now()->subDay(),
+            'scopes' => [],
+            'connected_by_user_id' => $carlos->id,
+        ]);
+
+        $client = Mockery::mock(GoogleClient::class);
+        $client->shouldReceive('fetchAccessTokenWithAuthCode')->andReturn([
+            'access_token' => 'nuevo', 'refresh_token' => 'rt-nuevo', 'expires_in' => 3600,
+        ]);
+        $client->shouldReceive('setAccessToken');
+        $service = new class extends GmailService
+        {
+            protected function fetchAccountEmail(): string
+            {
+                return 'automatizacion@proteccionlaboral.co';
+            }
+        };
+        $service->setClient($client)->handleCallback('code', $quienReconecta->id);
+
+        $cuenta = IntegrationToken::sole();
+        $this->assertSame($carlos->id, $cuenta->connected_by_user_id);
+        $this->assertSame('rt-nuevo', $cuenta->refresh_token);
+    }
+
+    // === sigueAutorizada ===
+
+    private function cuentaCaducada(): IntegrationToken
+    {
+        return IntegrationToken::create([
+            'provider' => IntegrationToken::PROVIDER_GMAIL,
+            'account_email' => 'automatizacion@proteccionlaboral.co',
+            'access_token' => 'at',
+            'refresh_token' => 'rt',
+            'expires_at' => now()->subHour(),
+            'scopes' => [],
+            'connected_by_user_id' => User::factory()->create()->id,
+        ]);
+    }
+
+    /** Un token vigente no necesita preguntarle nada a Google. */
+    public function test_una_cuenta_vigente_sigue_autorizada_sin_llamar_a_google(): void
+    {
+        $cuenta = $this->cuentaCaducada();
+        $cuenta->update(['expires_at' => now()->addHour()]);
+        $client = Mockery::mock(GoogleClient::class);
+        $client->shouldNotReceive('fetchAccessTokenWithRefreshToken');
+
+        $this->assertTrue((new GmailService)->setClient($client)->sigueAutorizada($cuenta));
+    }
+
+    public function test_caducada_pero_renovable_se_renueva(): void
+    {
+        $cuenta = $this->cuentaCaducada();
+        $client = Mockery::mock(GoogleClient::class);
+        $client->shouldReceive('fetchAccessTokenWithRefreshToken')->once()->with('rt')
+            ->andReturn(['access_token' => 'at-nuevo', 'expires_in' => 3600]);
+
+        $this->assertTrue((new GmailService)->setClient($client)->sigueAutorizada($cuenta));
+        $this->assertSame('at-nuevo', $cuenta->fresh()->access_token);
+        $this->assertFalse($cuenta->fresh()->isExpired());
+    }
+
+    /**
+     * Lo que paso al mudar el servidor: el cliente OAuth cambio y Google dejo
+     * de aceptar el refresh token. Eso es «hay que volver a conectar», no
+     * «se renovará automáticamente».
+     */
+    public function test_si_google_rechaza_el_refresh_token_no_sigue_autorizada(): void
+    {
+        $cuenta = $this->cuentaCaducada();
+        $client = Mockery::mock(GoogleClient::class);
+        $client->shouldReceive('fetchAccessTokenWithRefreshToken')
+            ->andReturn(['error' => 'invalid_grant', 'error_description' => 'Token has been expired or revoked.']);
+
+        $this->assertFalse((new GmailService)->setClient($client)->sigueAutorizada($cuenta));
+    }
+
+    /** Sin poder preguntar no se sabe; no se da por desconectada. */
+    public function test_si_no_se_puede_preguntar_a_google_el_estado_es_desconocido(): void
+    {
+        $cuenta = $this->cuentaCaducada();
+        $client = Mockery::mock(GoogleClient::class);
+        $client->shouldReceive('fetchAccessTokenWithRefreshToken')
+            ->andThrow(new \RuntimeException('cURL error 28: timeout'));
+
+        $this->assertNull((new GmailService)->setClient($client)->sigueAutorizada($cuenta));
+    }
 }

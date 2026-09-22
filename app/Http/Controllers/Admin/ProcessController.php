@@ -258,6 +258,8 @@ class ProcessController extends Controller
                     'url' => route('admin.documents.download', $d->id),
                     'generado_por_ia' => (bool) $d->generado_por_ia,
                     'visible_cliente' => (bool) $d->visible_cliente,
+                    // Las actas siguen la visibilidad de su visita.
+                    'de_visita' => $d->visit_id !== null,
                     'subido_por' => $d->uploader?->name,
                     'created_at' => $d->created_at?->toIso8601String(),
                 ]),

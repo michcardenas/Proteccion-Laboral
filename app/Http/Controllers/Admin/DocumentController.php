@@ -69,6 +69,31 @@ class DocumentController extends Controller
     }
 
     /**
+     * PATCH /admin/documents/{document}/visibility
+     *
+     * La visibilidad se elegia al subir el documento y no habia forma de
+     * cambiarla: para compartir algo ya subido habia que subirlo otra vez.
+     * Quien puede abrir el documento y tiene `documents.share_with_client`
+     * decide si el cliente lo ve.
+     */
+    public function visibility(Request $request, Document $document): RedirectResponse
+    {
+        if ($document->process_id !== null) {
+            $this->authorizeProcessAccess($request, $document->process);
+        } else {
+            $this->authorizeClientAccess($request, $document);
+        }
+
+        $data = $request->validate(['visible_cliente' => ['required', 'boolean']]);
+
+        $document->update(['visible_cliente' => $data['visible_cliente']]);
+
+        return back()->with('success', $document->visible_cliente
+            ? "«{$document->nombre}» ahora es visible para el cliente."
+            : "«{$document->nombre}» ya no es visible para el cliente.");
+    }
+
+    /**
      * Aborta con 403 si el usuario solo tiene visibilidad restringida
      * (`processes.view_assigned` sin `processes.view`) y no está asignado al
      * proceso al que pertenece el documento. Mismo criterio que el resto del módulo.

@@ -103,7 +103,11 @@ class GmailService
                 'refresh_token' => $token['refresh_token'] ?? $existing?->refresh_token,
                 'expires_at' => now()->addSeconds((int) ($token['expires_in'] ?? 3600)),
                 'scopes' => isset($token['scope']) ? explode(' ', $token['scope']) : $this->scopes,
-                'connected_by_user_id' => $connectedByUserId ?? Auth::id(),
+                // Reconectar renueva la autorizacion, no cambia de dueño. Si
+                // pasara a quien hizo clic, una directora que reconecta la
+                // bandeja de automatizacion se la quedaria, y al borrar a ese
+                // usuario la conexion se iria con el (cascadeOnDelete).
+                'connected_by_user_id' => $existing?->connected_by_user_id ?? $connectedByUserId ?? Auth::id(),
             ]
         );
 
@@ -345,14 +349,56 @@ class GmailService
         ]);
 
         if ($client->isAccessTokenExpired() && $token->refresh_token) {
-            $refreshed = $client->fetchAccessTokenWithRefreshToken($token->refresh_token);
-            if (! isset($refreshed['error'])) {
-                $token->update([
-                    'access_token' => $refreshed['access_token'],
-                    'expires_at' => now()->addSeconds((int) ($refreshed['expires_in'] ?? 3600)),
-                ]);
-            }
+            $this->refrescar($token);
         }
+    }
+
+    /**
+     * Si Google sigue aceptando la autorizacion de esta cuenta.
+     *
+     * Un token caducado se renueva solo, pero solo mientras Google acepte el
+     * refresh token. Deja de aceptarlo si se revoca el acceso o si cambia el
+     * cliente OAuth de la app (Google ata cada refresh token al cliente que lo
+     * emitio): paso al mudar el servidor, y la pantalla siguio diciendo
+     * «Conectado — se renovará automáticamente» sin ofrecer como reconectar.
+     *
+     * Devuelve null si no se pudo preguntar (Google caido, red): no saber no
+     * es lo mismo que estar desconectada.
+     */
+    public function sigueAutorizada(IntegrationToken $cuenta): ?bool
+    {
+        if (! $cuenta->isExpired()) {
+            return true;
+        }
+
+        if (! $cuenta->refresh_token) {
+            return false;
+        }
+
+        try {
+            return $this->refrescar($cuenta);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /** Renueva el access token. False si Google rechaza el refresh token. */
+    protected function refrescar(IntegrationToken $token): bool
+    {
+        $refreshed = $this->client()->fetchAccessTokenWithRefreshToken($token->refresh_token);
+
+        if (isset($refreshed['error'])) {
+            return false;
+        }
+
+        $token->update([
+            'access_token' => $refreshed['access_token'],
+            'expires_at' => now()->addSeconds((int) ($refreshed['expires_in'] ?? 3600)),
+        ]);
+
+        return true;
     }
 
     /**

@@ -84,4 +84,29 @@ class Document extends Model
     {
         return $this->belongsTo(User::class, 'subido_por');
     }
+
+    /**
+     * Si este cliente puede abrir el documento desde su portal.
+     *
+     * Tiene que ser suyo Y estar compartido con el. Antes bastaba con que fuera
+     * de uno de sus procesos, asi que cambiando el id en la URL el cliente
+     * descargaba adjuntos de correo y borradores internos que nadie le enseño.
+     *
+     * El acta de una visita sigue a la visita: se ve mientras la visita sea
+     * visible, sin importar lo que diga su propia casilla.
+     */
+    public function visibleEnPortalPara(Client $client): bool
+    {
+        $esSuyo = $this->process_id !== null
+            ? $this->process?->client_id === $client->id
+            : $this->client_id === $client->id;
+
+        if (! $esSuyo) {
+            return false;
+        }
+
+        return $this->visit_id !== null
+            ? (bool) $this->visit?->visible_cliente
+            : $this->visible_cliente;
+    }
 }
