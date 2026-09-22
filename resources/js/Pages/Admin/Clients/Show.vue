@@ -18,6 +18,17 @@ const props = defineProps({
 const page = usePage();
 const can = (p) => (page.props.auth.user?.permissions ?? []).includes(p);
 
+// Compartir con el cliente (o dejar de hacerlo) un documento ya subido.
+const cambiandoVisibilidad = ref(null);
+function alternarVisibilidad(d) {
+    cambiandoVisibilidad.value = d.id;
+    router.patch(
+        route('admin.documents.visibility', d.id),
+        { visible_cliente: !d.visible_cliente },
+        { preserveScroll: true, onFinish: () => (cambiandoVisibilidad.value = null) },
+    );
+}
+
 const tabs = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'contactos', label: 'Contactos' },
@@ -735,6 +746,15 @@ const contractEstadoVariants = {
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
+                                <button
+                                    v-if="can('documents.share_with_client')"
+                                    type="button"
+                                    :disabled="cambiandoVisibilidad === d.id"
+                                    @click="alternarVisibilidad(d)"
+                                    class="rounded-md border border-brand-200 bg-white px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                                >
+                                    {{ d.visible_cliente ? 'Dejar de compartir' : 'Compartir con el cliente' }}
+                                </button>
                                 <a
                                     :href="route('admin.documents.download', d.id)"
                                     target="_blank"

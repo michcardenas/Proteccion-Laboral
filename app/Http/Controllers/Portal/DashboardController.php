@@ -71,7 +71,19 @@ class DashboardController extends Controller
                 ->with(['registradaPor:id,name', 'asistentes:id,name', 'documents'])
                 ->orderByDesc('fecha'),
             'payments' => fn ($q) => $q->orderByDesc('fecha_pago'),
+            // Las actas de visita se enseñan dentro de su visita, no aqui.
+            'documents' => fn ($q) => $q->where('visible_cliente', true)
+                ->whereNull('visit_id')
+                ->latest(),
         ]);
+
+        // Lo compartido a nivel cliente (contrato, diagnostico): vale para todos
+        // sus procesos, asi que sale en cada uno.
+        $delCliente = $client->documents()
+            ->whereNull('process_id')
+            ->where('visible_cliente', true)
+            ->latest()
+            ->get();
 
         // Avance global por checklist (mismo cálculo que el admin).
         $totalChecklist = $process->stages->sum(fn ($s) => $s->checklistResponses->count());
@@ -130,6 +142,16 @@ class DashboardController extends Controller
                     'referencia' => $p->referencia,
                 ]),
                 'pagos_total' => (float) $process->payments->sum('monto'),
+                // Solo lo que el despacho marco como visible. Antes la casilla
+                // «visible para el cliente» se guardaba y el portal no la leia.
+                'documentos' => $process->documents->concat($delCliente)->map(fn (Document $d) => [
+                    'id' => $d->id,
+                    'nombre' => $d->nombre,
+                    'tipo' => $d->tipo,
+                    'fecha' => $d->created_at?->format('Y-m-d'),
+                    'del_cliente' => $d->process_id === null,
+                    'url' => route('portal.documents.download', $d->id),
+                ])->values(),
                 'visits' => $process->visits->map(fn ($v) => [
                     'id' => $v->id,
                     'tipo' => $v->tipo,
@@ -157,14 +179,8 @@ class DashboardController extends Controller
         /** @var Client $client */
         $client = Auth::guard('client')->user();
 
-        // El documento debe estar ligado a un proceso de este cliente.
-        $perteneceAlCliente = $document->process_id
-            && Process::query()
-                ->where('id', $document->process_id)
-                ->where('client_id', $client->id)
-                ->exists();
-
-        abort_unless($perteneceAlCliente, 403);
+        // Suyo y compartido con el: que sea de uno de sus procesos no basta.
+        abort_unless($document->visibleEnPortalPara($client), 403);
 
         if ($document->disco === 'gdrive') {
             return redirect()->away($document->ruta);

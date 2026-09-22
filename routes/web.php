@@ -154,6 +154,11 @@ Route::middleware(['auth', 'verified'])
             Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
         });
 
+        // Compartir o dejar de compartir un documento con el cliente despues de subirlo.
+        Route::middleware('permission:documents.share_with_client')
+            ->patch('documents/{document}/visibility', [DocumentController::class, 'visibility'])
+            ->name('documents.visibility');
+
         Route::middleware('permission:processes.create')->group(function () {
             Route::get('processes/create/new', [ProcessController::class, 'create'])->name('processes.create');
             Route::post('processes', [ProcessController::class, 'store'])->name('processes.store');

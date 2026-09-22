@@ -21,6 +21,17 @@ const props = defineProps({
 const page = usePage();
 const can = (p) => (page.props.auth.user?.permissions ?? []).includes(p);
 
+// Compartir con el cliente (o dejar de hacerlo) un documento ya subido.
+const cambiandoVisibilidad = ref(null);
+function alternarVisibilidad(d) {
+    cambiandoVisibilidad.value = d.id;
+    router.patch(
+        route('admin.documents.visibility', d.id),
+        { visible_cliente: !d.visible_cliente },
+        { preserveScroll: true, onFinish: () => (cambiandoVisibilidad.value = null) },
+    );
+}
+
 const tabs = [
     { key: 'tablero', label: 'Tablero de etapas' },
     { key: 'detalle', label: 'Detalle' },
@@ -1053,24 +1064,36 @@ const isLate = (stage) => {
                                 <StatusBadge variant="gray" :label="d.tipo" />
                                 <StatusBadge v-if="d.generado_por_ia" variant="indigo" label="IA" />
                                 <StatusBadge v-if="d.visible_cliente" variant="green" label="visible cliente" />
+                                <StatusBadge v-if="d.de_visita" variant="gray" label="acta de visita" />
                             </div>
                             <p class="text-xs text-brand-500">
                                 <span v-if="d.subido_por">Por {{ d.subido_por }}</span>
                                 <span v-if="d.created_at"> · {{ formatDateTime(d.created_at) }}</span>
                             </p>
                         </div>
-                        <a
-                            v-if="d.url"
-                            :href="d.url"
-                            target="_blank"
-                            rel="noopener"
-                            class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-accent-300 hover:text-accent-700"
-                        >
+                        <div class="flex shrink-0 items-center gap-2">
+                            <button
+                                v-if="can('documents.share_with_client') && !d.de_visita"
+                                type="button"
+                                :disabled="cambiandoVisibilidad === d.id"
+                                @click="alternarVisibilidad(d)"
+                                class="shrink-0 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-accent-300 hover:text-accent-700 disabled:opacity-50"
+                            >
+                                {{ d.visible_cliente ? 'Dejar de compartir' : 'Compartir con el cliente' }}
+                            </button>
+                            <a
+                                v-if="d.url"
+                                :href="d.url"
+                                target="_blank"
+                                rel="noopener"
+                                class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:border-accent-300 hover:text-accent-700"
+                            >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
                             </svg>
-                            Abrir
-                        </a>
+                                Abrir
+                            </a>
+                        </div>
                     </li>
                 </ul>
             </section>

@@ -215,6 +215,41 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { d
             </ol>
         </section>
 
+        <!-- Documentos compartidos por el despacho -->
+        <section class="portal-in mt-5 rounded-2xl border border-brand-200 bg-white p-6 shadow-sm" style="animation-delay: 230ms">
+            <div class="flex items-center gap-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-900 text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                </span>
+                <h2 class="text-sm font-semibold text-brand-900">Documentos</h2>
+            </div>
+
+            <p v-if="!process.documentos.length" class="mt-4 text-sm italic text-brand-400">
+                El despacho aún no ha compartido documentos en este proceso.
+            </p>
+
+            <ul v-else class="mt-4 divide-y divide-brand-100">
+                <li v-for="d in process.documentos" :key="d.id" class="flex items-center justify-between gap-4 py-3">
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-medium text-brand-800">{{ d.nombre }}</p>
+                        <p class="text-[11px] text-brand-400">
+                            {{ formatDate(d.fecha) }}<span v-if="d.del_cliente"> · Documento general de su empresa</span>
+                        </p>
+                    </div>
+                    <a
+                        :href="d.url"
+                        target="_blank"
+                        rel="noopener"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 transition hover:text-accent-700 hover:ring-accent-300"
+                    >
+                        Abrir
+                    </a>
+                </li>
+            </ul>
+        </section>
+
         <!-- Pagos (constancia para el cliente) -->
         <section class="portal-in mt-5 rounded-2xl border border-brand-200 bg-white p-6 shadow-sm" style="animation-delay: 260ms">
             <div class="flex items-center justify-between gap-3">
