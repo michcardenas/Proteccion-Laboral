@@ -80,7 +80,13 @@ function disconnect() {
                             <h3 class="text-base font-semibold text-brand-900">Cuenta de Gmail</h3>
                             <p class="text-sm">
                                 <span
-                                    v-if="connection.connected"
+                                    v-if="connection.connected && connection.necesita_reconectar"
+                                    class="inline-flex items-center gap-1.5 font-medium text-danger-700"
+                                >
+                                    <span class="h-2 w-2 rounded-full bg-danger-500"></span> Hay que volver a conectar
+                                </span>
+                                <span
+                                    v-else-if="connection.connected"
                                     class="inline-flex items-center gap-1.5 font-medium text-success-700"
                                 >
                                     <span class="h-2 w-2 rounded-full bg-success-500"></span> Conectado
@@ -112,9 +118,13 @@ function disconnect() {
                             </div>
                             <div class="flex flex-wrap justify-between gap-2">
                                 <dt class="text-sm text-brand-500">Token expira</dt>
-                                <dd class="text-sm" :class="connection.is_expired ? 'font-medium text-warning-600' : 'text-brand-900'">
+                                <dd
+                                    class="text-sm"
+                                    :class="connection.necesita_reconectar ? 'font-medium text-danger-600' : connection.is_expired ? 'font-medium text-warning-600' : 'text-brand-900'"
+                                >
                                     {{ formatDateTime(connection.expires_at) }}
-                                    <span v-if="connection.is_expired"> (expirado — se renovará automáticamente)</span>
+                                    <span v-if="connection.necesita_reconectar"> (Google ya no acepta esta autorización)</span>
+                                    <span v-else-if="connection.is_expired"> (expirado — se renovará automáticamente)</span>
                                 </dd>
                             </div>
                             <div v-if="connection.scopes?.length">
@@ -128,8 +138,29 @@ function disconnect() {
                                 </dd>
                             </div>
 
+                            <!-- Google rechaza el token: sin esto la cuenta parecia conectada
+                                 y no habia ningun boton para arreglarla. -->
                             <div
-                                v-if="missingScopes.length"
+                                v-if="connection.necesita_reconectar"
+                                class="rounded-lg border border-danger-200 bg-danger-50 p-4"
+                            >
+                                <p class="text-sm font-medium text-danger-900">Esta cuenta dejó de traer correo</p>
+                                <p class="mt-1 text-sm text-danger-800">
+                                    Google ya no acepta la autorización guardada: se revocó el acceso o cambió la
+                                    configuración de la aplicación. Vuelve a conectarla entrando con
+                                    <strong>{{ connection.account_email }}</strong>. Los correos que ya entraron se
+                                    conservan y la cuenta sigue perteneciendo a quien la conectó.
+                                </p>
+                                <a
+                                    :href="connectUrl"
+                                    class="mt-3 inline-flex items-center rounded-md bg-danger-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-danger-700"
+                                >
+                                    Volver a conectar
+                                </a>
+                            </div>
+
+                            <div
+                                v-else-if="missingScopes.length"
                                 class="rounded-lg border border-warning-200 bg-warning-50 p-4"
                             >
                                 <p class="text-sm font-medium text-warning-900">Faltan permisos por otorgar</p>
@@ -167,17 +198,38 @@ function disconnect() {
                                             <p class="truncate text-sm font-medium text-brand-900">{{ c.account_email }}</p>
                                             <p class="text-xs text-brand-500">
                                                 Conectada por {{ c.connected_by || '—' }} · {{ formatDateTime(c.connected_at) }}
-                                                <span v-if="c.is_expired" class="ml-1 font-medium text-danger-600">· token caducado</span>
+                                                <span v-if="c.necesita_reconectar" class="ml-1 font-medium text-danger-600">· hay que volver a conectar</span>
+                                                <span v-else-if="c.is_expired" class="ml-1 font-medium text-warning-600">· token caducado</span>
                                             </p>
                                         </div>
-                                        <button
-                                            @click="cuentaADesconectar = c"
-                                            class="shrink-0 rounded-md border border-danger-200 bg-danger-50 px-3 py-1.5 text-sm font-medium text-danger-700 transition hover:bg-danger-100"
-                                        >
-                                            Desconectar
-                                        </button>
+                                        <div class="flex shrink-0 gap-2">
+                                            <a
+                                                v-if="c.necesita_reconectar"
+                                                :href="connectUrl"
+                                                class="rounded-md border border-accent-200 bg-accent-50 px-3 py-1.5 text-sm font-medium text-accent-700 transition hover:bg-accent-100"
+                                            >
+                                                Reconectar
+                                            </a>
+                                            <button
+                                                @click="cuentaADesconectar = c"
+                                                class="rounded-md border border-danger-200 bg-danger-50 px-3 py-1.5 text-sm font-medium text-danger-700 transition hover:bg-danger-100"
+                                            >
+                                                Desconectar
+                                            </button>
+                                        </div>
                                     </li>
                                 </ul>
+                                <!-- Con una cuenta ya conectada no habia forma de sumar otra:
+                                     el boton de conectar solo salia con la lista vacia. -->
+                                <a
+                                    :href="connectUrl"
+                                    class="mt-3 inline-flex items-center gap-2 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+                                >
+                                    + Conectar otra cuenta
+                                </a>
+                                <p class="mt-1 text-xs text-brand-500">
+                                    Cada abogada conecta la suya; quedará a nombre de quien la conecte.
+                                </p>
                             </div>
                         </dl>
 
