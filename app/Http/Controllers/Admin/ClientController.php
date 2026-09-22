@@ -235,7 +235,7 @@ class ClientController extends Controller
      */
     public function activatePortal(Request $request, Client $client): RedirectResponse
     {
-        abort_unless($request->user()->can('clients.update'), 403);
+        abort_unless($request->user()->can('clients.activate_portal'), 403);
 
         $data = $request->validate([
             // Opcional: si no se envía, se genera una temporal y se muestra una vez.
@@ -261,7 +261,7 @@ class ClientController extends Controller
      */
     public function deactivatePortal(Request $request, Client $client): RedirectResponse
     {
-        abort_unless($request->user()->can('clients.update'), 403);
+        abort_unless($request->user()->can('clients.activate_portal'), 403);
 
         $client->forceFill(['portal_activo' => false])->save();
 
