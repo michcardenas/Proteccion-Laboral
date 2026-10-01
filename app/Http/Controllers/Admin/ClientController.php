@@ -113,7 +113,7 @@ class ClientController extends Controller
 
         $potentialAssignees = User::query()
             ->where('is_active', true)
-            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['abogado_interno', 'abogado_externo', 'apoderado', 'coordinador']))
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['abogado_senior', 'abogado_interno', 'abogado_externo', 'apoderado', 'coordinador']))
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (User $u) => [

@@ -470,7 +470,7 @@ class ProcessController extends Controller
     {
         return User::query()
             ->where('is_active', true)
-            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['director', 'coordinador', 'abogado_interno', 'abogado_externo', 'apoderado']))
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['director', 'coordinador', 'abogado_senior', 'abogado_interno', 'abogado_externo', 'apoderado']))
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (User $u) => [
