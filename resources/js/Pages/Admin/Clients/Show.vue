@@ -288,7 +288,22 @@ const contractEstadoVariants = {
                                 El cliente ingresa en <code>/portal/login</code> con su NIT <strong>{{ client.nit }}</strong> y la contraseña que definas aquí.
                             </p>
                             <p v-if="!client.puede_acceder_portal && client.portal_activo" class="mt-2 rounded-md bg-warning-50 px-3 py-1.5 text-xs text-warning-800 ring-1 ring-inset ring-warning-200">
-                                Aviso: este cliente no tiene aún un proceso con abogado asignado, así que no podrá entrar hasta que se le asigne uno.
+                                <template v-if="client.processes.length">
+                                    Aviso: el cliente no podrá entrar hasta que alguno de sus <strong>procesos</strong> tenga abogado líder.
+                                    Abre el proceso, pulsa <strong>Editar</strong> y elige el <strong>Abogado líder</strong>.
+                                </template>
+                                <template v-else>
+                                    Aviso: el cliente no podrá entrar hasta que tenga al menos un <strong>proceso</strong> con abogado líder.
+                                    Crea el proceso y asigna ahí el <strong>Abogado líder</strong>.
+                                </template>
+                                El «Equipo asignado» del cliente no cuenta para el portal.
+                                <button
+                                    type="button"
+                                    @click="activeTab = 'procesos'"
+                                    class="ml-1 font-semibold underline hover:text-warning-900"
+                                >
+                                    Ir a Procesos →
+                                </button>
                             </p>
                         </div>
                         <button type="button" class="text-accent-400 hover:text-accent-700" @click="showPortalPanel = false">✕</button>
@@ -601,6 +616,7 @@ const contractEstadoVariants = {
                                 <p class="text-xs text-brand-500">
                                     {{ p.service?.nombre || 'Servicio sin definir' }}
                                     <span v-if="p.lider"> · Líder: {{ p.lider }}</span>
+                                    <span v-else class="font-medium text-warning-700"> · Sin abogado líder</span>
                                     <span v-if="p.fecha_apertura"> · Abierto {{ formatDate(p.fecha_apertura) }}</span>
                                 </p>
                             </Link>
