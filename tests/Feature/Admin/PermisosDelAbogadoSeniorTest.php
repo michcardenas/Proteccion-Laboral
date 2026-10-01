@@ -57,6 +57,27 @@ class PermisosDelAbogadoSeniorTest extends TestCase
             ->assertOk();
     }
 
+    /**
+     * Y puede ser abogada líder. Las listas de personal de los formularios
+     * filtraban por rol y `abogado_senior` no estaba en ninguna: Leidy no
+     * podía ponerse como líder de un proceso, y sin líder el cliente no entra
+     * al portal. Peor aún, un proceso donde ya era líder perdía el líder al
+     * editarlo y guardar, porque el select no tenía su opción.
+     */
+    public function test_aparece_como_opcion_de_abogado_lider_y_de_equipo(): void
+    {
+        $senior = $this->senior();
+        $client = Client::factory()->create();
+
+        $this->actingAs($senior)
+            ->get(route('admin.processes.create'))
+            ->assertInertia(fn ($page) => $page->where('staff', fn ($staff) => collect($staff)->contains('id', $senior->id)));
+
+        $this->actingAs($senior)
+            ->get(route('admin.clients.show', $client))
+            ->assertInertia(fn ($page) => $page->where('potentialAssignees', fn ($u) => collect($u)->contains('id', $senior->id)));
+    }
+
     /** Pero crear clientes sigue siendo de coordinación y dirección. */
     public function test_no_puede_crear_clientes(): void
     {
