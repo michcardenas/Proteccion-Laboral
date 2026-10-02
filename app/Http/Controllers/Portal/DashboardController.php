@@ -71,6 +71,10 @@ class DashboardController extends Controller
                 ->with(['registradaPor:id,name', 'asistentes:id,name', 'documents'])
                 ->orderByDesc('fecha'),
             'payments' => fn ($q) => $q->orderByDesc('fecha_pago'),
+            // Respuestas y comunicaciones que el despacho marco como visibles.
+            'comments' => fn ($q) => $q->where('visible_cliente', true)
+                ->with('user:id,name')
+                ->latest(),
             // Las actas de visita se enseñan dentro de su visita, no aqui.
             'documents' => fn ($q) => $q->where('visible_cliente', true)
                 ->whereNull('visit_id')
@@ -151,6 +155,15 @@ class DashboardController extends Controller
                     'fecha' => $d->created_at?->format('Y-m-d'),
                     'del_cliente' => $d->process_id === null,
                     'url' => route('portal.documents.download', $d->id),
+                ])->values(),
+                // Antes la casilla «visible para el cliente» de los comentarios
+                // (respuestas de correo, borradores IA) se guardaba y el portal
+                // no los mostraba en ningun lado.
+                'mensajes' => $process->comments->map(fn ($c) => [
+                    'id' => $c->id,
+                    'body' => $c->body,
+                    'autor' => $c->user?->name,
+                    'fecha' => $c->created_at?->toIso8601String(),
                 ])->values(),
                 'visits' => $process->visits->map(fn ($v) => [
                     'id' => $v->id,

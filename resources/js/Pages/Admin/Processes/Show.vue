@@ -32,6 +32,17 @@ function alternarVisibilidad(d) {
     );
 }
 
+// Igual, para un comentario (respuesta de correo, borrador IA).
+const cambiandoComentario = ref(null);
+function alternarVisibilidadComentario(c) {
+    cambiandoComentario.value = c.id;
+    router.patch(
+        route('admin.comments.visibility', c.id),
+        { visible_cliente: !c.visible_cliente },
+        { preserveScroll: true, onFinish: () => (cambiandoComentario.value = null) },
+    );
+}
+
 const tabs = [
     { key: 'tablero', label: 'Tablero de etapas' },
     { key: 'detalle', label: 'Detalle' },
@@ -1113,6 +1124,15 @@ const isLate = (stage) => {
                             <p class="text-sm font-medium text-brand-900">{{ c.user || '—' }}</p>
                             <StatusBadge v-if="c.visible_cliente" variant="green" label="visible cliente" />
                             <span v-if="c.created_at" class="text-xs text-brand-500">{{ formatDateTime(c.created_at) }}</span>
+                            <button
+                                v-if="can('documents.share_with_client')"
+                                type="button"
+                                :disabled="cambiandoComentario === c.id"
+                                @click="alternarVisibilidadComentario(c)"
+                                class="ml-auto shrink-0 rounded-md border border-brand-200 bg-white px-3 py-1 text-xs font-medium text-brand-700 transition hover:border-accent-300 hover:text-accent-700 disabled:opacity-50"
+                            >
+                                {{ c.visible_cliente ? 'Dejar de compartir' : 'Compartir con el cliente' }}
+                            </button>
                         </div>
                         <p class="mt-1 whitespace-pre-line text-sm text-brand-700">{{ c.body }}</p>
                     </li>

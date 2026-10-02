@@ -80,7 +80,78 @@ class ClientController extends Controller
             ],
             'estados' => self::ESTADOS,
             'sectores' => $sectores,
+            // Para «Activar portal a varios»: solo quien puede activar lo ve.
+            'portalCandidatos' => $user->can('clients.activate_portal')
+                ? $this->portalCandidatos($user)->get(['id', 'razon_social', 'nit'])
+                    ->map(fn (Client $c) => ['id' => $c->id, 'razon_social' => $c->razon_social, 'nit' => $c->nit])
+                : [],
         ]);
+    }
+
+    /**
+     * Clientes a los que se puede abrir el portal y que de verdad podran
+     * entrar: sin portal todavia, con NIT (es su usuario) y con al menos un
+     * proceso con abogado asignado (lo exige el login, ver puedeAccederPortal).
+     */
+    private function portalCandidatos(User $user)
+    {
+        $query = Client::query()
+            ->where('portal_activo', false)
+            ->whereNotNull('nit')
+            ->where('nit', '!=', '')
+            ->whereHas('processes', fn ($q) => $q->where(function ($q) {
+                $q->whereNotNull('abogado_lider_id')
+                    ->orWhereNotNull('apoderado_id')
+                    ->orWhereNotNull('coordinador_id');
+            }))
+            ->orderBy('razon_social');
+
+        if (! $user->can('clients.view') && $user->can('clients.view_assigned')) {
+            $query->whereHas('asignados', fn ($q) => $q->where('users.id', $user->id));
+        }
+
+        return $query;
+    }
+
+    /**
+     * Activa el portal de varios clientes de una vez y devuelve sus
+     * contraseñas en claro UNA sola vez, igual que la activacion individual.
+     */
+    public function activatePortalBulk(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->can('clients.activate_portal'), 403);
+
+        $data = $request->validate([
+            'client_ids' => ['required', 'array', 'min:1'],
+            'client_ids.*' => ['integer'],
+        ]);
+
+        $credenciales = [];
+
+        foreach ($this->portalCandidatos($request->user())->whereIn('id', $data['client_ids'])->get() as $client) {
+            $plain = Str::password(10, symbols: false);
+
+            $client->forceFill([
+                'password' => $plain, // el cast 'hashed' del modelo lo cifra
+                'portal_activo' => true,
+            ])->save();
+
+            $credenciales[] = [
+                'razon_social' => $client->razon_social,
+                'nit' => $client->nit,
+                'password' => $plain,
+            ];
+        }
+
+        if (! $credenciales) {
+            return back()->with('error', 'Ninguno de los clientes elegidos se pudo activar.');
+        }
+
+        return back()
+            ->with('portal_credentials_bulk', $credenciales)
+            ->with('success', count($credenciales) === 1
+                ? 'Portal activado para 1 cliente.'
+                : 'Portal activado para '.count($credenciales).' clientes.');
     }
 
     public function create(): Response

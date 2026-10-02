@@ -49,6 +49,13 @@ const tipoVisitaTone = {
     otro: 'bg-brand-100 text-brand-600 ring-brand-300',
 };
 
+// Los borradores IA vienen en Markdown; el portal los muestra como texto
+// limpio, sin los # de los titulos ni los ** de las negritas.
+const textoLimpio = (t) => (t ?? '')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .trim();
+
 const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—');
 const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 </script>
@@ -118,6 +125,27 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { d
         </section>
 
         <!-- Plan de trabajo (etapas como barras) -->
+        <!-- Mensajes del despacho: respuestas y comunicaciones compartidas -->
+        <section v-if="process.mensajes && process.mensajes.length" class="portal-in mt-5 rounded-2xl border border-brand-200 bg-white p-6 shadow-sm" style="animation-delay: 110ms">
+            <div class="flex items-center gap-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-900 text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                    </svg>
+                </span>
+                <h2 class="text-sm font-semibold text-brand-900">Mensajes del despacho</h2>
+            </div>
+
+            <ul class="mt-4 space-y-3">
+                <li v-for="(m, idx) in process.mensajes" :key="m.id" class="plan-row rounded-xl border border-brand-200 bg-brand-50/40 p-4" :style="{ animationDelay: `${idx * 60}ms` }">
+                    <p class="text-[11px] text-brand-400">
+                        {{ formatDateTime(m.fecha) }}<span v-if="m.autor"> · {{ m.autor }}</span>
+                    </p>
+                    <p class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                </li>
+            </ul>
+        </section>
+
         <section class="portal-in mt-5 rounded-2xl border border-brand-200 bg-white p-6 shadow-sm" style="animation-delay: 140ms">
             <div class="flex items-center gap-2">
                 <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-900 text-white">

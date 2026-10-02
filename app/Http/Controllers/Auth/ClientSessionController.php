@@ -54,7 +54,7 @@ class ClientSessionController extends Controller
             Auth::guard('client')->logout();
 
             throw ValidationException::withMessages([
-                'nit' => 'Tu portal aún no tiene un proceso activo asignado. Contacta a tu abogado.',
+                'nit' => 'Tu acceso está activo, pero ninguno de tus procesos tiene todavía un abogado asignado. Contacta al despacho para que lo asigne.',
             ]);
         }
 

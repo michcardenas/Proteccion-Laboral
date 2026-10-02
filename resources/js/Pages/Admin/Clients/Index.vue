@@ -6,12 +6,14 @@ import PageHeader from '@/Components/PageHeader.vue';
 import DataTable from '@/Components/DataTable.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import TextInput from '@/Components/TextInput.vue';
+import Modal from '@/Components/Modal.vue';
 
 const props = defineProps({
     clients: Object,
     filters: Object,
     estados: Array,
     sectores: Array,
+    portalCandidatos: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -58,6 +60,50 @@ const estadoVariants = {
 
 const initialsFor = (name) => name?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? '?';
 
+// ===== Activar portal a varios =====
+const showBulk = ref(false);
+const seleccion = ref([]);
+const activando = ref(false);
+const bulkCreds = computed(() => page.props.flash?.portal_credentials_bulk ?? null);
+const copiado = ref(false);
+
+const abrirBulk = () => {
+    seleccion.value = props.portalCandidatos.map((c) => c.id);
+    copiado.value = false;
+    showBulk.value = true;
+};
+const todosMarcados = computed(() => seleccion.value.length === props.portalCandidatos.length);
+const alternarTodos = () => {
+    seleccion.value = todosMarcados.value ? [] : props.portalCandidatos.map((c) => c.id);
+};
+const activarSeleccion = () => {
+    activando.value = true;
+    router.post(route('admin.clients.portal.activate-bulk'), { client_ids: seleccion.value }, {
+        preserveScroll: true,
+        onSuccess: () => (showBulk.value = false),
+        onFinish: () => (activando.value = false),
+    });
+};
+
+// Las contraseñas solo se ven esta vez: se copian o se descargan.
+const credsComoTexto = () => (bulkCreds.value ?? [])
+    .map((c) => `${c.razon_social}\tNIT: ${c.nit}\tContraseña: ${c.password}`)
+    .join('\n');
+const copiarCreds = async () => {
+    await navigator.clipboard.writeText(credsComoTexto());
+    copiado.value = true;
+};
+const descargarCreds = () => {
+    const filas = [['Cliente', 'NIT', 'Contraseña'], ...(bulkCreds.value ?? []).map((c) => [c.razon_social, c.nit, c.password])];
+    const csv = filas.map((f) => f.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `accesos-portal-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
 const clearFilters = () => { search.value = ''; estado.value = ''; sector.value = ''; };
 const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!sector.value);
 </script>
@@ -78,6 +124,16 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                         Total: <strong class="ml-0.5 text-brand-900">{{ clients.total }}</strong>
                     </span>
                 </div>
+                <div class="flex flex-wrap items-center gap-2">
+                <button
+                    v-if="can('clients.activate_portal')"
+                    type="button"
+                    @click="abrirBulk"
+                    class="inline-flex items-center gap-2 rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-accent-300 hover:text-accent-700"
+                >
+                    Activar portal a varios
+                    <span v-if="portalCandidatos.length" class="rounded-full bg-accent-50 px-2 py-0.5 text-xs font-semibold text-accent-700">{{ portalCandidatos.length }}</span>
+                </button>
                 <Link
                     v-if="can('clients.create')"
                     :href="route('admin.clients.create')"
@@ -88,6 +144,42 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                     </svg>
                     Nuevo cliente
                 </Link>
+                </div>
+            </div>
+
+            <!-- Credenciales recien generadas en lote (se muestran una sola vez) -->
+            <div v-if="bulkCreds && bulkCreds.length" class="rounded-xl border border-success-200 bg-success-50 p-5 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-semibold text-success-800">Accesos al portal generados</p>
+                        <p class="mt-0.5 text-xs text-success-700">
+                            Cada cliente entra en <code>/portal/login</code> con su NIT y esta contraseña.
+                            <strong>Solo se muestran ahora:</strong> cópialas o descárgalas antes de salir de la página.
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" @click="copiarCreds" class="rounded-md border border-success-300 bg-white px-3 py-1.5 text-sm font-medium text-success-800 hover:bg-success-100">
+                            {{ copiado ? 'Copiado ✓' : 'Copiar todo' }}
+                        </button>
+                        <button type="button" @click="descargarCreds" class="rounded-md bg-success-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-success-800">
+                            Descargar (Excel)
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-4 overflow-x-auto rounded-lg border border-success-200 bg-white">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-success-50/60 text-left text-xs text-success-800">
+                            <tr><th class="px-3 py-2">Cliente</th><th class="px-3 py-2">NIT</th><th class="px-3 py-2">Contraseña</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-success-100">
+                            <tr v-for="c in bulkCreds" :key="c.nit">
+                                <td class="px-3 py-2 text-brand-800">{{ c.razon_social }}</td>
+                                <td class="px-3 py-2 font-mono text-brand-700">{{ c.nit }}</td>
+                                <td class="px-3 py-2 font-mono font-semibold text-brand-900">{{ c.password }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Filters -->
@@ -198,5 +290,50 @@ const hasActiveFilters = computed(() => !!search.value || !!estado.value || !!se
                 </template>
             </DataTable>
         </div>
+
+        <Modal :show="showBulk" max-width="lg" @close="showBulk = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-brand-900">Activar portal a varios clientes</h3>
+                <p class="mt-1 text-sm text-brand-500">
+                    Solo aparecen los clientes que aún no tienen portal y que ya pueden entrar: tienen NIT y al menos un proceso con abogado asignado.
+                    A cada uno se le genera una contraseña.
+                </p>
+
+                <p v-if="!portalCandidatos.length" class="mt-5 rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-600">
+                    No hay clientes pendientes. Para que un cliente aparezca aquí, asígnale un abogado líder a alguno de sus procesos.
+                </p>
+
+                <template v-else>
+                    <label class="mt-5 flex items-center gap-2 border-b border-brand-100 pb-2 text-sm font-medium text-brand-700">
+                        <input type="checkbox" :checked="todosMarcados" @change="alternarTodos" class="rounded border-brand-300 text-brand-900 focus:ring-brand-900" />
+                        Seleccionar todos ({{ portalCandidatos.length }})
+                    </label>
+                    <ul class="mt-2 max-h-72 space-y-1 overflow-y-auto">
+                        <li v-for="c in portalCandidatos" :key="c.id">
+                            <label class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-brand-50">
+                                <input type="checkbox" :value="c.id" v-model="seleccion" class="rounded border-brand-300 text-brand-900 focus:ring-brand-900" />
+                                <span class="flex-1 text-brand-800">{{ c.razon_social }}</span>
+                                <span class="font-mono text-xs text-brand-400">{{ c.nit }}</span>
+                            </label>
+                        </li>
+                    </ul>
+                </template>
+
+                <div class="mt-6 flex justify-end gap-2">
+                    <button type="button" @click="showBulk = false" class="rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50">
+                        Cancelar
+                    </button>
+                    <button
+                        v-if="portalCandidatos.length"
+                        type="button"
+                        :disabled="activando || !seleccion.length"
+                        @click="activarSeleccion"
+                        class="rounded-md bg-brand-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-800 disabled:opacity-50"
+                    >
+                        {{ activando ? 'Activando…' : `Activar ${seleccion.length}` }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AuthenticatedLayout>
 </template>

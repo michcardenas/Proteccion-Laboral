@@ -21,6 +21,8 @@ const subject = ref('');
 const body = ref('');
 const instrucciones = ref('');
 const visibleCliente = ref(false);
+// Si la abogada toca la casilla, su eleccion manda sobre el valor por defecto.
+const visibleTocado = ref(false);
 
 const redactando = ref(false);
 const enviando = ref(false);
@@ -34,6 +36,13 @@ function soloEmail(v) {
     return (m ? m[1] : v).trim();
 }
 
+// Una respuesta al propio cliente (su correo o el de un contacto suyo) queda
+// visible en el portal por defecto. A terceros (trabajador, ARL) no.
+function esDelCliente(v) {
+    const correo = soloEmail(v).toLowerCase();
+    return !!correo && (props.process.client?.emails ?? []).includes(correo);
+}
+
 watch(
     () => props.show,
     (open) => {
@@ -43,12 +52,17 @@ watch(
             subject.value = /^re:/i.test(s) ? s : `Re: ${s}`;
             body.value = '';
             instrucciones.value = '';
-            visibleCliente.value = false;
+            visibleCliente.value = esDelCliente(to.value);
+            visibleTocado.value = false;
             error.value = null;
             successMsg.value = null;
         }
     },
 );
+
+watch(to, (v) => {
+    if (!visibleTocado.value) visibleCliente.value = esDelCliente(v);
+});
 
 function close() {
     emit('close');
@@ -159,7 +173,7 @@ async function enviar() {
                 </div>
 
                 <label class="flex items-center gap-2 text-sm text-brand-600">
-                    <Checkbox v-model:checked="visibleCliente" />
+                    <Checkbox v-model:checked="visibleCliente" @update:checked="visibleTocado = true" />
                     Registrar el comentario como visible para el cliente
                 </label>
 

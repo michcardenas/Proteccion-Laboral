@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
@@ -113,7 +113,11 @@ const deactivatePortal = () => {
 };
 
 // ===== Documentos del cliente =====
-const docForm = useForm({ archivo: null, nombre: '', tipo: props.documentTypes[0] ?? 'contrato', visible_cliente: false });
+// Comunicaciones e informes son para el cliente: salen visibles por defecto.
+const TIPOS_VISIBLES = ['comunicacion', 'informe'];
+const tipoInicial = props.documentTypes[0] ?? 'contrato';
+const docForm = useForm({ archivo: null, nombre: '', tipo: tipoInicial, visible_cliente: TIPOS_VISIBLES.includes(tipoInicial) });
+watch(() => docForm.tipo, (tipo) => { docForm.visible_cliente = TIPOS_VISIBLES.includes(tipo); });
 const docFileInput = ref(null);
 
 const onDocFileChange = (e) => {
