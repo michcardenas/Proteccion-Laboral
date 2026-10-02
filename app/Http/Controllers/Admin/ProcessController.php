@@ -210,6 +210,14 @@ class ProcessController extends Controller
                     'id' => $process->client->id,
                     'razon_social' => $process->client->razon_social,
                     'nit' => $process->client->nit,
+                    // Correos del cliente: una respuesta dirigida a ellos se
+                    // marca visible en el portal por defecto.
+                    'emails' => collect([$process->client->email])
+                        ->merge($process->client->contactos()->pluck('email'))
+                        ->filter()
+                        ->map(fn ($e) => mb_strtolower(trim($e)))
+                        ->unique()
+                        ->values(),
                 ] : null,
                 'service' => $process->serviceType ? [
                     'nombre' => $process->serviceType->nombre,

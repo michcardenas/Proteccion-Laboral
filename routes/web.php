@@ -158,6 +158,9 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:documents.share_with_client')
             ->patch('documents/{document}/visibility', [DocumentController::class, 'visibility'])
             ->name('documents.visibility');
+        Route::middleware('permission:documents.share_with_client')
+            ->patch('comments/{comment}/visibility', [DocumentController::class, 'commentVisibility'])
+            ->name('comments.visibility');
 
         Route::middleware('permission:processes.create')->group(function () {
             Route::get('processes/create/new', [ProcessController::class, 'create'])->name('processes.create');
@@ -211,6 +214,7 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:clients.activate_portal')->group(function () {
             Route::post('clients/{client}/portal/activate', [ClientController::class, 'activatePortal'])->name('clients.portal.activate');
             Route::post('clients/{client}/portal/deactivate', [ClientController::class, 'deactivatePortal'])->name('clients.portal.deactivate');
+            Route::post('clients/portal/activate-bulk', [ClientController::class, 'activatePortalBulk'])->name('clients.portal.activate-bulk');
         });
 
         // === Importación de plan/contrato con IA ===

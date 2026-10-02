@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Comment;
 use App\Models\Document;
 use App\Models\Process;
 use App\Models\User;
@@ -98,6 +99,24 @@ class DocumentController extends Controller
      * (`processes.view_assigned` sin `processes.view`) y no está asignado al
      * proceso al que pertenece el documento. Mismo criterio que el resto del módulo.
      */
+    /**
+     * Compartir o dejar de compartir un comentario del proceso (respuesta de
+     * correo, borrador IA) con el cliente.
+     */
+    public function commentVisibility(Request $request, Comment $comment): RedirectResponse
+    {
+        abort_unless($comment->commentable instanceof Process, 404);
+        $this->authorizeProcessAccess($request, $comment->commentable);
+
+        $data = $request->validate(['visible_cliente' => ['required', 'boolean']]);
+
+        $comment->update(['visible_cliente' => $data['visible_cliente']]);
+
+        return back()->with('success', $comment->visible_cliente
+            ? 'El comentario ahora es visible para el cliente.'
+            : 'El comentario ya no es visible para el cliente.');
+    }
+
     private function authorizeProcessAccess(Request $request, ?Process $process): void
     {
         abort_unless($process !== null, 404);

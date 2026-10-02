@@ -44,6 +44,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 // Credenciales del portal del cliente, mostradas una sola vez tras activarlo.
                 'portal_credentials' => fn () => $request->session()->get('portal_credentials'),
+                'portal_credentials_bulk' => fn () => $request->session()->get('portal_credentials_bulk'),
             ],
         ];
     }

@@ -30,6 +30,12 @@ const TIPO_BY_TEMPLATE = {
 };
 const DOC_TYPES = ['contrato', 'concepto', 'informe', 'escrito', 'comunicacion', 'soporte', 'otro'];
 
+// Lo que se redacta PARA el cliente sale visible por defecto; borradores,
+// escritos y conceptos internos no. La casilla se puede cambiar igual.
+const TIPOS_VISIBLES = ['comunicacion', 'informe'];
+const visiblePorTipo = (tipo) => TIPOS_VISIBLES.includes(tipo);
+const visiblePorPlantilla = (t) => t === 'draft_comunicacion_cliente';
+
 const availableTemplates = computed(() =>
     props.templates.length ? props.templates : Object.keys(TEMPLATE_LABELS)
 );
@@ -56,11 +62,20 @@ const commentVisibleCliente = ref(false);
 
 const saving = ref(false);
 const successMsg = ref(null);
+// Cada destino se guarda una sola vez: antes el boton seguia activo y el
+// mismo borrador quedaba repetido (en prod, 3 comentarios en 2 segundos).
+const guardadoDoc = ref(false);
+const guardadoComment = ref(false);
 
 const hasResult = computed(() => borrador.value.trim().length > 0);
 
 watch(selectedTemplate, (t) => {
     docTipo.value = TIPO_BY_TEMPLATE[t] ?? 'escrito';
+    commentVisibleCliente.value = visiblePorPlantilla(t);
+});
+
+watch(docTipo, (tipo) => {
+    docVisibleCliente.value = visiblePorTipo(tipo);
 });
 
 function resetAll() {
@@ -71,9 +86,11 @@ function resetAll() {
     segundos.value = 0;
     successMsg.value = null;
     docNombre.value = '';
-    docVisibleCliente.value = false;
-    commentVisibleCliente.value = false;
+    guardadoDoc.value = false;
+    guardadoComment.value = false;
     docTipo.value = TIPO_BY_TEMPLATE[selectedTemplate.value] ?? 'escrito';
+    docVisibleCliente.value = visiblePorTipo(docTipo.value);
+    commentVisibleCliente.value = visiblePorPlantilla(selectedTemplate.value);
 }
 
 function close() {
@@ -132,6 +149,7 @@ async function guardarComoDocumento() {
             visible_cliente: docVisibleCliente.value,
         });
         successMsg.value = 'Borrador guardado como documento.';
+        guardadoDoc.value = true;
         emit('saved', { kind: 'document' });
     } catch (e) {
         error.value = describeError(e);
@@ -151,6 +169,7 @@ async function guardarComoComentario() {
             visible_cliente: commentVisibleCliente.value,
         });
         successMsg.value = 'Borrador guardado como comentario.';
+        guardadoComment.value = true;
         emit('saved', { kind: 'comment' });
     } catch (e) {
         error.value = describeError(e);
@@ -260,8 +279,8 @@ async function guardarComoComentario() {
                                     <Checkbox v-model:checked="docVisibleCliente" />
                                     Visible para el cliente
                                 </label>
-                                <PrimaryButton class="w-full justify-center" :disabled="saving" @click="guardarComoDocumento">
-                                    Guardar como Document
+                                <PrimaryButton class="w-full justify-center" :disabled="saving || guardadoDoc" @click="guardarComoDocumento">
+                                    {{ guardadoDoc ? 'Guardado ✓' : 'Guardar como Document' }}
                                 </PrimaryButton>
                             </div>
                         </div>
@@ -277,8 +296,8 @@ async function guardarComoComentario() {
                                     <Checkbox v-model:checked="commentVisibleCliente" />
                                     Visible para el cliente
                                 </label>
-                                <SecondaryButton class="w-full justify-center" :disabled="saving" @click="guardarComoComentario">
-                                    Guardar como Comment
+                                <SecondaryButton class="w-full justify-center" :disabled="saving || guardadoComment" @click="guardarComoComentario">
+                                    {{ guardadoComment ? 'Guardado ✓' : 'Guardar como Comment' }}
                                 </SecondaryButton>
                             </div>
                         </div>
