@@ -315,7 +315,7 @@ const contractEstadoVariants = {
 
                     <!-- Credenciales recién generadas (se muestran una sola vez) -->
                     <div v-if="portalCreds" class="mt-3 rounded-lg border border-success-200 bg-white p-3">
-                        <p class="text-xs font-semibold text-success-700">✓ Credenciales del portal — cópialas y compártelas con el cliente (no se volverán a mostrar):</p>
+                        <p class="text-xs font-semibold text-success-700">✓ Credenciales del portal — cópialas y compártelas con el cliente (no se volverán a mostrar). Es una contraseña provisional: el cliente pondrá una suya al entrar.</p>
                         <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <div class="rounded-md bg-brand-50 px-3 py-2 text-sm ring-1 ring-inset ring-brand-200"><span class="text-brand-400">NIT:</span> <strong class="text-brand-800">{{ portalCreds.nit }}</strong></div>
                             <div class="rounded-md bg-brand-50 px-3 py-2 text-sm ring-1 ring-inset ring-brand-200"><span class="text-brand-400">Contraseña:</span> <strong class="font-mono text-brand-800">{{ portalCreds.password }}</strong></div>
@@ -324,8 +324,8 @@ const contractEstadoVariants = {
 
                     <form class="mt-4 flex flex-wrap items-end gap-3" @submit.prevent="submitPortal">
                         <div class="flex-1 min-w-[12rem]">
-                            <label class="block text-xs font-medium text-brand-600">{{ client.portal_activo ? 'Cambiar contraseña (opcional)' : 'Contraseña (opcional, se genera si la dejas vacía)' }}</label>
-                            <TextInput v-model="portalForm.password" type="text" class="mt-1 w-full" placeholder="Mínimo 6 caracteres" />
+                            <label class="block text-xs font-medium text-brand-600">{{ client.portal_activo ? 'Nueva contraseña provisional (vacía = el NIT)' : 'Contraseña provisional (vacía = el NIT sin puntos)' }}</label>
+                            <TextInput v-model="portalForm.password" type="text" class="mt-1 w-full" placeholder="Vacía: el NIT sin puntos" />
                             <p v-if="portalForm.errors.password" class="mt-1 text-xs text-danger-600">{{ portalForm.errors.password }}</p>
                         </div>
                         <button type="submit" :disabled="portalForm.processing" class="rounded-md bg-brand-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 disabled:opacity-60">

@@ -33,17 +33,20 @@ class ClientSessionController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $nit = trim($credentials['nit']);
+        // Con o sin puntos y digito de verificacion: hay NIT guardados de las
+        // dos formas y la clave provisional es el NIT sin puntos.
+        $nit = Client::nitSinPuntos($credentials['nit']);
 
-        $client = Client::query()
-            ->where('nit', $nit)
+        $client = $nit === null ? null : Client::query()
             ->where('portal_activo', true)
-            ->first();
+            ->whereNotNull('nit')
+            ->get()
+            ->first(fn (Client $c) => Client::nitSinPuntos($c->nit) === $nit);
 
         // Mensaje genérico para no revelar si el NIT existe o el portal está activo.
         if (! $client
             || ! $client->password
-            || ! Auth::guard('client')->attempt(['nit' => $nit, 'password' => $credentials['password']])) {
+            || ! Auth::guard('client')->attempt(['nit' => $client->nit, 'password' => $credentials['password']])) {
             throw ValidationException::withMessages([
                 'nit' => 'Las credenciales no son válidas o el portal aún no está habilitado para este NIT.',
             ]);
@@ -60,6 +63,10 @@ class ClientSessionController extends Controller
 
         $request->session()->regenerate();
         $client->forceFill(['portal_last_login_at' => now()])->saveQuietly();
+
+        if ($client->debe_cambiar_clave) {
+            return redirect()->route('portal.password.edit');
+        }
 
         return redirect()->intended(route('portal.dashboard'));
     }

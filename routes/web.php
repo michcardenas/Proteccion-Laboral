@@ -343,7 +343,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
     });
 
     // Zona autenticada del cliente.
-    Route::middleware('auth:client')->group(function () {
+    Route::middleware(['auth:client', \App\Http\Middleware\EnsureClientChangedPassword::class])->group(function () {
+        Route::get('cambiar-clave', [\App\Http\Controllers\Portal\PasswordController::class, 'edit'])->name('password.edit');
+        Route::put('cambiar-clave', [\App\Http\Controllers\Portal\PasswordController::class, 'update'])->name('password.update');
         Route::get('/', [PortalDashboardController::class, 'index'])->name('dashboard');
         Route::get('procesos/{process}', [PortalDashboardController::class, 'show'])->name('process');
         Route::get('documentos/{document}/download', [PortalDashboardController::class, 'downloadDocument'])->name('documents.download');

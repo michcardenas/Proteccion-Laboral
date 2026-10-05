@@ -57,11 +57,14 @@ class ActivarPortalEnLoteTest extends TestCase
         $this->assertTrue($a->fresh()->portal_activo);
         $this->assertTrue($b->fresh()->portal_activo);
 
-        // La contraseña entregada sirve para entrar al portal.
+        // La provisional es el NIT sin puntos, sirve para entrar y obliga a
+        // poner una propia antes de ver nada.
+        $this->assertSame(Client::nitSinPuntos($a->nit), $creds->firstWhere('nit', $a->nit)['password']);
+        $this->assertTrue($a->fresh()->debe_cambiar_clave);
         $this->post(route('portal.login.store'), [
             'nit' => $a->nit,
             'password' => $creds->firstWhere('nit', $a->nit)['password'],
-        ])->assertRedirect(route('portal.dashboard'));
+        ])->assertRedirect(route('portal.password.edit'));
         $respuesta->assertSessionHasNoErrors();
     }
 
