@@ -46,11 +46,23 @@ class Client extends Authenticatable
     protected $casts = [
         'fecha_alta' => 'date',
         'portal_activo' => 'boolean',
+        'debe_cambiar_clave' => 'boolean',
         'portal_last_login_at' => 'datetime',
         'password' => 'hashed',
         'resumen_documental_at' => 'datetime',
         'drive_synced_at' => 'datetime',
     ];
+
+    /**
+     * El NIT como lo teclea la gente: solo los digitos, sin puntos ni el
+     * digito de verificacion. «860.000.122-1» → «860000122».
+     */
+    public static function nitSinPuntos(?string $nit): ?string
+    {
+        $digitos = preg_replace('/\D/', '', explode('-', trim((string) $nit))[0]);
+
+        return $digitos !== '' ? $digitos : null;
+    }
 
     public function contactos(): HasMany
     {

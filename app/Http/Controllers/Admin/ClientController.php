@@ -129,11 +129,13 @@ class ClientController extends Controller
         $credenciales = [];
 
         foreach ($this->portalCandidatos($request->user())->whereIn('id', $data['client_ids'])->get() as $client) {
-            $plain = Str::password(10, symbols: false);
+            // Clave provisional = NIT sin puntos; el cliente la cambia al entrar.
+            $plain = Client::nitSinPuntos($client->nit) ?? Str::password(10, symbols: false);
 
             $client->forceFill([
                 'password' => $plain, // el cast 'hashed' del modelo lo cifra
                 'portal_activo' => true,
+                'debe_cambiar_clave' => true,
             ])->save();
 
             $credenciales[] = [
@@ -301,23 +303,27 @@ class ClientController extends Controller
     }
 
     /**
-     * Activa el portal del cliente y define/genera su contraseña.
-     * El cliente entrará con su NIT + esta contraseña.
+     * Activa el portal del cliente y define su contraseña provisional: la que
+     * escriba la abogada o, si la deja vacia, el NIT sin puntos. Sea cual sea,
+     * el cliente la cambia al entrar por primera vez.
      */
     public function activatePortal(Request $request, Client $client): RedirectResponse
     {
         abort_unless($request->user()->can('clients.activate_portal'), 403);
 
         $data = $request->validate([
-            // Opcional: si no se envía, se genera una temporal y se muestra una vez.
             'password' => ['nullable', 'string', 'min:6', 'max:100'],
         ]);
 
-        $plain = $data['password'] ?? Str::password(10, symbols: false);
+        $plain = $data['password'] ?? Client::nitSinPuntos($client->nit);
+        if ($plain === null) {
+            return back()->with('error', 'El cliente no tiene NIT: escribe una contraseña provisional.');
+        }
 
         $client->forceFill([
             'password' => $plain, // el cast 'hashed' del modelo lo cifra
             'portal_activo' => true,
+            'debe_cambiar_clave' => true,
         ])->save();
 
         // Se devuelve la contraseña en claro UNA sola vez para que el despacho la comparta.

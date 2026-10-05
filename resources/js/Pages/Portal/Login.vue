@@ -30,7 +30,7 @@ const submit = () => {
             </span>
             <h2 class="mt-3 text-2xl font-semibold tracking-tight text-brand-900">Consulta tu caso</h2>
             <p class="mt-1 text-sm text-brand-500">
-                Ingresa con el <strong>NIT</strong> de tu empresa y la contraseña que te entregó Protección Laboral.
+                Ingresa con el <strong>NIT</strong> de tu empresa (con o sin puntos) y la contraseña que te entregó Protección Laboral.
             </p>
         </div>
 
