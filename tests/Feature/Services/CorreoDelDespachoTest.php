@@ -159,6 +159,93 @@ class CorreoDelDespachoTest extends TestCase
         $this->assertSame('comunicacion', $doc->tipo);
     }
 
+    public function test_reenvio_de_gmail_de_un_correo_propio_al_cliente_se_comparte_con_el_original(): void
+    {
+        app(EmailRouter::class)->route($this->correo([
+            'subject' => 'Fwd: Citación a descargos',
+            'to' => 'automatizacion@proteccionlaboral.co',
+            'body_text' => "Para el portal.\n\n---------- Forwarded message ---------\nDe: Leidy Rodríguez <leidy@proteccionlaboral.co>\nDate: lun, 5 oct 2026 a las 10:12\nSubject: Citación a descargos\nTo: Gerencia <gerencia@empresademo.co>\nCc: Otra <otra@empresademo.co>\n\nBuenos días,\n\nAdjuntamos el acta firmada.\n\nCordialmente,\nLeidy\n\nEl lun, 5 oct 2026 a las 9:00, Gerencia <gerencia@empresademo.co> escribió:\n> ¿Nos envían el acta?",
+        ]));
+
+        $c = Comment::sole();
+        $this->assertTrue($c->visible_cliente);
+        $this->assertTrue(Document::sole()->visible_cliente);
+        // Se enseña el correo original, no la nota del reenvío ni la cabecera.
+        $this->assertStringStartsWith("📧 Respuesta enviada a gerencia@empresademo.co, otra@empresademo.co\nAsunto: Citación a descargos\n\nBuenos días,", $c->body);
+        $this->assertStringContainsString('Adjuntamos el acta firmada.', $c->body);
+        $this->assertStringNotContainsString('Para el portal', $c->body);
+        $this->assertStringNotContainsString('Forwarded message', $c->body);
+        $this->assertStringNotContainsString('¿Nos envían', $c->body);
+    }
+
+    public function test_reenvio_de_outlook_en_ingles_tambien_cuenta(): void
+    {
+        app(EmailRouter::class)->route($this->correo([
+            'subject' => 'RV: Informe mensual',
+            'to' => 'automatizacion@proteccionlaboral.co',
+            'body_text' => "\n*From:* Leidy <leidy@proteccionlaboral.co>\n*Sent:* Monday, October 5, 2026 10:12 AM\n*To:* gerencia@empresademo.co\n*Subject:* Informe mensual\n\nAdjunto el informe.\n",
+        ]));
+
+        $c = Comment::sole();
+        $this->assertTrue($c->visible_cliente);
+        $this->assertStringContainsString("Asunto: Informe mensual\n\nAdjunto el informe.", $c->body);
+    }
+
+    public function test_reenviar_a_la_bandeja_un_correo_del_cliente_queda_interno(): void
+    {
+        app(EmailRouter::class)->route($this->correo([
+            'subject' => 'Fwd: Consulta',
+            'to' => 'automatizacion@proteccionlaboral.co',
+            'body_text' => "---------- Mensaje reenviado ---------\nDe: Gerencia <gerencia@empresademo.co>\nFecha: lun, 5 oct 2026\nAsunto: Consulta\nPara: <leidy@proteccionlaboral.co>\n\n¿Cómo va el caso?",
+        ]));
+
+        // Es un correo del cliente reenviado: nota interna y adjunto como soporte, como siempre.
+        $c = Comment::sole();
+        $this->assertFalse($c->visible_cliente);
+        $this->assertStringStartsWith('[Correo entrante]', $c->body);
+        $this->assertNull(Document::first()->comment_id);
+        $this->assertSame('soporte', Document::first()->tipo);
+    }
+
+    public function test_el_comando_revierte_reenvios_de_clientes_mal_convertidos_y_respeta_lo_compartido(): void
+    {
+        $reenvio = fn (string $id) => $this->correo([
+            'message_id' => $id, 'subject' => 'Fwd: Consulta', 'to' => 'automatizacion@proteccionlaboral.co',
+            'status' => EmailIngestion::STATUS_PROCESSED, 'process_id' => $this->process->id,
+            'body_text' => "---------- Mensaje reenviado ---------\nDe: Gerencia <gerencia@empresademo.co>\nPara: <leidy@proteccionlaboral.co>\n\nAdjunto el contrato.",
+        ]);
+        // Como los dejó la conversión anterior: «📧 …» con el adjunto colgado.
+        $mal = $reenvio('m1');
+        $nota = $this->process->comments()->create(['user_id' => $this->leidy->id, 'email_ingestion_id' => $mal->id, 'body' => '📧 Respuesta enviada a automatizacion@proteccionlaboral.co', 'visible_cliente' => false]);
+        Document::create(['email_ingestion_id' => $mal->id, 'comment_id' => $nota->id, 'ruta' => 'inbound/m1/Contrato.docx', 'process_id' => $this->process->id, 'client_id' => $this->process->client_id, 'nombre' => 'Contrato.docx', 'disco' => 'local', 'tipo' => 'comunicacion', 'visible_cliente' => false]);
+        $compartido = $reenvio('m2');
+        $ya = $this->process->comments()->create(['user_id' => $this->leidy->id, 'email_ingestion_id' => $compartido->id, 'body' => '📧 Respuesta enviada a x', 'visible_cliente' => true]);
+
+        $this->artisan('portal:correos-del-despacho --aplicar')->assertSuccessful();
+
+        $this->assertStringStartsWith('[Correo entrante]', $nota->fresh()->body);
+        $doc = Document::where('email_ingestion_id', $mal->id)->sole();
+        $this->assertNull($doc->comment_id);
+        $this->assertSame('soporte', $doc->tipo);
+        // Lo que alguien compartió no se toca.
+        $this->assertSame('📧 Respuesta enviada a x', $ya->fresh()->body);
+    }
+
+    public function test_una_respuesta_que_cita_un_correo_propio_no_se_toma_por_reenvio(): void
+    {
+        app(EmailRouter::class)->route($this->correo([
+            'subject' => 'RE: Informe',
+            'to' => 'automatizacion@proteccionlaboral.co',
+            'body_text' => "Recordatorio interno.\n\nDe: Leidy <leidy@proteccionlaboral.co>\nEnviado: lunes, 5 de octubre de 2026\nPara: gerencia@empresademo.co\nAsunto: Informe\n\nTexto viejo.",
+        ]));
+
+        $c = Comment::sole();
+        $this->assertFalse($c->visible_cliente);
+        $this->assertStringContainsString('Recordatorio interno.', $c->body);
+        // La cita de Outlook se corta.
+        $this->assertStringNotContainsString('Texto viejo', $c->body);
+    }
+
     public function test_sin_citas_respeta_el_texto_propio(): void
     {
         $this->assertSame("Hola\n\nGracias", CorreoDelDespacho::sinCitas("Hola\n\n\n\nGracias\n\nOn Mon, Oct 5 wrote:\n> x", 'RE: x'));

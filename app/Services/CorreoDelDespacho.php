@@ -33,13 +33,34 @@ class CorreoDelDespacho
 
     public function esDelDespacho(EmailIngestion $ingestion): bool
     {
-        $from = self::soloCorreo($ingestion->from);
-        if ($from === '') {
+        if (! $this->esCorreoDelDespacho(self::soloCorreo($ingestion->from))) {
             return false;
         }
 
-        return $this->correosEquipo()->contains($from)
-            || $this->dominios()->contains(substr(strrchr($from, '@'), 1));
+        // Reenviar a la bandeja el correo de un cliente (lo más común: 36 de
+        // 40 reenvíos en prod) no lo convierte en mensaje del despacho: el
+        // autor es el del correo reenviado, y el adjunto, suyo.
+        if ($this->esReenvio($ingestion) && ($original = self::reenviado((string) $ingestion->body_text))) {
+            return $this->esCorreoDelDespacho($original['de']);
+        }
+
+        return true;
+    }
+
+    private function esReenvio(EmailIngestion $ingestion): bool
+    {
+        return preg_match('/^\s*(fw|fwd|rv)\s*:/i', (string) $ingestion->subject)
+            || preg_match('/^\s*-{3,}\s*(Forwarded message|Mensaje reenviado)/imu', (string) $ingestion->body_text);
+    }
+
+    private function esCorreoDelDespacho(string $correo): bool
+    {
+        if ($correo === '' || ! str_contains($correo, '@')) {
+            return false;
+        }
+
+        return $this->correosEquipo()->contains($correo)
+            || $this->dominios()->contains(substr(strrchr($correo, '@'), 1));
     }
 
     /**
@@ -51,7 +72,96 @@ class CorreoDelDespacho
     {
         $destinatarios = collect(preg_split('/[,;]/', (string) $ingestion->to))->map(fn ($d) => self::soloCorreo($d))->filter();
 
+        // Lo habitual: la abogada escribe al cliente y luego REENVÍA ese
+        // correo a la bandeja. El cliente no está en «Para» del reenvío, pero
+        // sí en el del correo reenviado.
+        if ($original = $this->reenvioPropio($ingestion)) {
+            $destinatarios = $destinatarios->merge($original['para']);
+        }
+
         return $destinatarios->intersect($process->client?->correos() ?? collect())->isNotEmpty();
+    }
+
+    /**
+     * Si el correo es el reenvío de uno que escribió el propio despacho,
+     * devuelve ese correo original; si no (reenvío de un correo del cliente,
+     * o no es reenvío), null.
+     *
+     * @return array{de: string, para: list<string>, asunto: ?string, cuerpo: string}|null
+     */
+    public function reenvioPropio(EmailIngestion $ingestion): ?array
+    {
+        // Solo reenvíos: una respuesta normal también cita «De: / Para:» del
+        // hilo y no por eso es el correo que hay que enseñar.
+        if (! $this->esReenvio($ingestion)) {
+            return null;
+        }
+
+        $original = self::reenviado((string) $ingestion->body_text);
+
+        return $original && $this->esCorreoDelDespacho($original['de']) ? $original : null;
+    }
+
+    /**
+     * Lee la cabecera del primer mensaje reenviado dentro del cuerpo. Gmail
+     * («---------- Mensaje reenviado / Forwarded message ---------») y
+     * Outlook («De: / Enviado: / Para: / Asunto:»), en español o inglés.
+     *
+     * @return array{de: string, para: list<string>, asunto: ?string, cuerpo: string}|null
+     */
+    public static function reenviado(string $texto): ?array
+    {
+        $lineas = explode("\n", str_replace("\r\n", "\n", $texto));
+        $clave = '/^\s*\**\s*(De|From|Fecha|Date|Enviado(?: el)?|Sent|Asunto|Subject|Para|To|Cc|CC)\s*\**\s*:\s*\**\s*(.*)$/iu';
+
+        // Dónde empieza la cabecera: tras el separador de Gmail o en la primera «De:/From:».
+        $inicio = null;
+        foreach ($lineas as $i => $linea) {
+            if (preg_match('/^\s*-{3,}\s*(Forwarded message|Mensaje reenviado|Original Message|Mensaje original)\s*-{3,}\s*$/iu', $linea)) {
+                $inicio = $i + 1;
+                break;
+            }
+            if (preg_match('/^\s*\**\s*(De|From)\s*\**\s*:/iu', $linea)) {
+                $inicio = $i;
+                break;
+            }
+        }
+        if ($inicio === null) {
+            return null;
+        }
+
+        $campos = [];
+        $i = $inicio;
+        for (; $i < count($lineas); $i++) {
+            if (trim($lineas[$i]) === '') {
+                if ($campos) {
+                    break;
+                }
+
+                continue;
+            }
+            if (! preg_match($clave, $lineas[$i], $m)) {
+                break;
+            }
+            $campos[mb_strtolower(explode(' ', $m[1])[0])] = trim($m[2], " *\t");
+        }
+
+        $de = $campos['de'] ?? $campos['from'] ?? null;
+        if (! $de) {
+            return null;
+        }
+
+        $correos = fn (?string $v) => preg_match_all('/[A-Z0-9._%+\'-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', (string) $v, $m) ? array_map('mb_strtolower', $m[0]) : [];
+
+        return [
+            'de' => $correos($de)[0] ?? '',
+            'para' => array_values(array_unique(array_merge(
+                $correos($campos['para'] ?? $campos['to'] ?? null),
+                $correos($campos['cc'] ?? null),
+            ))),
+            'asunto' => $campos['asunto'] ?? $campos['subject'] ?? null,
+            'cuerpo' => self::sinCitas(implode("\n", array_slice($lineas, $i))),
+        ];
     }
 
     /**
@@ -99,6 +209,26 @@ class CorreoDelDespacho
         return $comment;
     }
 
+    /**
+     * Deshace la conversión de un correo que resultó no ser del despacho (el
+     * reenvío de un correo del cliente): vuelve la nota interna y el adjunto
+     * como soporte suelto. No toca lo que alguien ya compartió.
+     *
+     * @return bool false si estaba compartido y se dejó como está
+     */
+    public function revertir(Comment $comment, EmailIngestion $ingestion): bool
+    {
+        if ($comment->visible_cliente) {
+            return false;
+        }
+
+        $comment->forceFill(['body' => EmailRouter::notaEntrante($ingestion)])->save();
+        Document::where('comment_id', $comment->id)->where('email_ingestion_id', $ingestion->id)
+            ->update(['comment_id' => null, 'tipo' => 'soporte', 'visible_cliente' => false]);
+
+        return true;
+    }
+
     /** @return list<array{filename: string, mime_type: ?string, size: ?int}> */
     public function adjuntosReales(EmailIngestion $ingestion): array
     {
@@ -113,6 +243,14 @@ class CorreoDelDespacho
     /** «📧 Respuesta enviada a …» como las respuestas que salen desde la plataforma. */
     public function cuerpo(EmailIngestion $ingestion): string
     {
+        // Reenvío de un correo propio: lo que vio el cliente es el original,
+        // no la nota del reenvío ni la cabecera «De: / Para:».
+        if ($original = $this->reenvioPropio($ingestion)) {
+            $asunto = $original['asunto'] ?: preg_replace('/^\s*(fw|fwd|rv)\s*:\s*/i', '', (string) $ingestion->subject);
+
+            return '📧 Respuesta enviada a '.implode(', ', $original['para'])."\nAsunto: ".trim($asunto)."\n\n".$original['cuerpo'];
+        }
+
         $para = collect(preg_split('/[,;]/', (string) $ingestion->to))->map(fn ($d) => self::soloCorreo($d))->filter()->implode(', ');
         $texto = self::sinCitas((string) $ingestion->body_text, (string) $ingestion->subject);
 
@@ -129,9 +267,13 @@ class CorreoDelDespacho
 
         if (! preg_match('/^\s*(fw|fwd|rv)\s*:/i', $asunto)) {
             $lineas = [];
-            foreach (explode("\n", $texto) as $linea) {
+            $todas = explode("\n", $texto);
+            foreach ($todas as $n => $linea) {
                 if (preg_match('/^\s*(El\s.+escribi[óo]:|On\s.+wrote:)\s*$/u', $linea)
-                    || preg_match('/^\s*-{2,}\s*(Mensaje original|Original Message)/i', $linea)) {
+                    || preg_match('/^\s*-{2,}\s*(Mensaje original|Original Message|Forwarded message|Mensaje reenviado)/i', $linea)
+                    // Cita de Outlook: «De: …» y debajo «Enviado:/Sent:/Fecha:/Date:».
+                    || (preg_match('/^\s*\**\s*(De|From)\s*\**\s*:/iu', $linea)
+                        && preg_match('/^\s*\**\s*(Enviado|Sent|Fecha|Date)/iu', $todas[$n + 1] ?? ''))) {
                     break;
                 }
                 if (str_starts_with(ltrim($linea), '>')) {
