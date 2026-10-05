@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 
@@ -55,6 +56,27 @@ const textoLimpio = (t) => (t ?? '')
     .replace(/^#{1,6}\s*/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .trim();
+
+// Con documento adjunto, lo que el cliente busca es el documento: va
+// delante y el texto del correo queda plegado debajo.
+const abiertos = ref(new Set());
+const alternarMensaje = (id) => {
+    const s = new Set(abiertos.value);
+    s.has(id) ? s.delete(id) : s.add(id);
+    abiertos.value = s;
+};
+const extension = (nombre) => (nombre?.match(/\.([a-z0-9]+)$/i)?.[1] ?? '').toLowerCase();
+const tipoArchivo = (nombre) => ({
+    doc: 'Word', docx: 'Word', pdf: 'PDF', xls: 'Excel', xlsx: 'Excel',
+    jpg: 'Imagen', jpeg: 'Imagen', png: 'Imagen', webp: 'Imagen', txt: 'Texto',
+})[extension(nombre)] ?? 'Documento';
+const tonoArchivo = (nombre) => ({
+    Word: 'bg-info-50 text-info-700 ring-info-200',
+    PDF: 'bg-danger-50 text-danger-700 ring-danger-200',
+    Excel: 'bg-success-50 text-success-700 ring-success-200',
+})[tipoArchivo(nombre)] ?? 'bg-brand-50 text-brand-600 ring-brand-200';
+// Las respuestas de correo se guardan como «📧 Respuesta enviada a …\nAsunto: …».
+const asunto = (body) => (body ?? '').match(/^Asunto:\s*(.+)$/m)?.[1]?.trim() ?? null;
 
 const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—');
 const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
@@ -141,20 +163,46 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { d
                     <p class="text-[11px] text-brand-400">
                         {{ formatDateTime(m.fecha) }}<span v-if="m.autor"> · {{ m.autor }}</span>
                     </p>
-                    <p class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
-                    <div v-if="m.adjuntos && m.adjuntos.length" class="mt-3 flex flex-wrap gap-2 border-t border-brand-100 pt-3">
-                        <a
-                            v-for="d in m.adjuntos"
-                            :key="d.id"
-                            :href="d.url"
-                            target="_blank"
-                            rel="noopener"
-                            class="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 transition hover:text-accent-700 hover:ring-accent-300"
+
+                    <!-- Con adjuntos: el documento primero, el correo plegado -->
+                    <template v-if="m.adjuntos && m.adjuntos.length">
+                        <p v-if="asunto(m.body)" class="mt-1 text-sm font-medium text-brand-900">{{ asunto(m.body) }}</p>
+                        <div class="mt-3 space-y-2">
+                            <a
+                                v-for="d in m.adjuntos"
+                                :key="d.id"
+                                :href="d.url"
+                                target="_blank"
+                                rel="noopener"
+                                class="group flex items-center gap-3 rounded-lg border border-brand-200 bg-white p-3 transition hover:border-accent-300 hover:shadow-sm"
+                            >
+                                <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[10px] font-bold uppercase ring-1 ring-inset', tonoArchivo(d.nombre)]">
+                                    {{ extension(d.nombre) || 'doc' }}
+                                </span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="line-clamp-2 break-words text-sm font-medium text-brand-900">{{ d.nombre }}</span>
+                                    <span class="block text-xs text-brand-400">{{ tipoArchivo(d.nombre) }}</span>
+                                </span>
+                                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-900 px-2.5 py-2 text-xs font-medium text-white transition group-hover:bg-accent-700 sm:px-3 sm:py-1.5" aria-label="Descargar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                    </svg>
+                                    <span class="hidden sm:inline">Descargar</span>
+                                </span>
+                            </a>
+                        </div>
+                        <button
+                            type="button"
+                            class="mt-3 text-xs font-medium text-brand-500 transition hover:text-accent-700"
+                            :aria-expanded="abiertos.has(m.id)"
+                            @click="alternarMensaje(m.id)"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
-                            {{ d.nombre }}
-                        </a>
-                    </div>
+                            {{ abiertos.has(m.id) ? 'Ocultar mensaje' : 'Ver mensaje' }}
+                        </button>
+                        <p v-if="abiertos.has(m.id)" class="mt-2 whitespace-pre-line border-t border-brand-100 pt-2 text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                    </template>
+
+                    <p v-else class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
                 </li>
             </ul>
         </section>
