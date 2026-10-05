@@ -64,6 +64,29 @@ class Client extends Authenticatable
         return $digitos !== '' ? $digitos : null;
     }
 
+    /**
+     * Activa el portal con una clave provisional: la que se dé o, si no, el
+     * NIT sin puntos. El cliente la cambia al entrar por primera vez.
+     *
+     * @return string|null la clave en claro (para enseñarla una vez); null si
+     *                     no hay NIT ni clave con que activarlo
+     */
+    public function activarPortal(?string $clave = null): ?string
+    {
+        $clave ??= self::nitSinPuntos($this->nit);
+        if ($clave === null) {
+            return null;
+        }
+
+        $this->forceFill([
+            'password' => $clave, // el cast 'hashed' la cifra
+            'portal_activo' => true,
+            'debe_cambiar_clave' => true,
+        ])->save();
+
+        return $clave;
+    }
+
     /** Correos del cliente y de sus contactos, en minúsculas. */
     public function correos(): \Illuminate\Support\Collection
     {

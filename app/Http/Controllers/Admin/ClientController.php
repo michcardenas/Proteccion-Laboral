@@ -130,13 +130,7 @@ class ClientController extends Controller
 
         foreach ($this->portalCandidatos($request->user())->whereIn('id', $data['client_ids'])->get() as $client) {
             // Clave provisional = NIT sin puntos; el cliente la cambia al entrar.
-            $plain = Client::nitSinPuntos($client->nit) ?? Str::password(10, symbols: false);
-
-            $client->forceFill([
-                'password' => $plain, // el cast 'hashed' del modelo lo cifra
-                'portal_activo' => true,
-                'debe_cambiar_clave' => true,
-            ])->save();
+            $plain = $client->activarPortal() ?? $client->activarPortal(Str::password(10, symbols: false));
 
             $credenciales[] = [
                 'razon_social' => $client->razon_social,
@@ -167,9 +161,14 @@ class ClientController extends Controller
     {
         $client = Client::create($request->validated());
 
+        // Todo cliente con NIT queda con el portal activo desde que se crea:
+        // activarlos uno a uno era el trabajo que nadie hacía.
+        $clave = $client->activarPortal();
+
         return redirect()
             ->route('admin.clients.show', $client)
-            ->with('success', 'Cliente creado exitosamente.');
+            ->with('success', 'Cliente creado exitosamente.'.($clave ? ' Su portal quedó activo.' : ''))
+            ->with('portal_credentials', $clave ? ['nit' => $client->nit, 'password' => $clave] : null);
     }
 
     public function show(Client $client): Response
@@ -295,11 +294,19 @@ class ClientController extends Controller
 
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse
     {
+        $teniaNit = Client::nitSinPuntos($client->nit) !== null;
         $client->update($request->validated());
+
+        // Los que llegan de Drive se crean sin NIT: el portal se activa
+        // cuando se lo ponen. A quien ya tenía portal o clave no se le toca.
+        $clave = ! $teniaNit && ! $client->portal_activo && ! $client->password
+            ? $client->activarPortal()
+            : null;
 
         return redirect()
             ->route('admin.clients.show', $client)
-            ->with('success', 'Cliente actualizado.');
+            ->with('success', 'Cliente actualizado.'.($clave ? ' Su portal quedó activo.' : ''))
+            ->with('portal_credentials', $clave ? ['nit' => $client->nit, 'password' => $clave] : null);
     }
 
     /**
@@ -315,16 +322,10 @@ class ClientController extends Controller
             'password' => ['nullable', 'string', 'min:6', 'max:100'],
         ]);
 
-        $plain = $data['password'] ?? Client::nitSinPuntos($client->nit);
+        $plain = $client->activarPortal($data['password'] ?? null);
         if ($plain === null) {
             return back()->with('error', 'El cliente no tiene NIT: escribe una contraseña provisional.');
         }
-
-        $client->forceFill([
-            'password' => $plain, // el cast 'hashed' del modelo lo cifra
-            'portal_activo' => true,
-            'debe_cambiar_clave' => true,
-        ])->save();
 
         // Se devuelve la contraseña en claro UNA sola vez para que el despacho la comparta.
         return back()->with('portal_credentials', [
