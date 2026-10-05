@@ -350,7 +350,7 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { d
                         rel="noopener"
                         class="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 transition hover:text-accent-700 hover:ring-accent-300"
                     >
-                        Abrir
+                        {{ d.es_word ? 'Descargar Word' : 'Abrir' }}
                     </a>
                 </li>
             </ul>

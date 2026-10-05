@@ -158,6 +158,7 @@ class DashboardController extends Controller
                     'tipo' => $d->tipo,
                     'fecha' => $d->created_at?->format('Y-m-d'),
                     'del_cliente' => $d->process_id === null,
+                    'es_word' => MensajeWord::esHtml($d) || str_contains((string) $d->mime, 'word'),
                     'url' => route('portal.documents.download', $d->id),
                 ])->values(),
                 // Antes la casilla «visible para el cliente» de los comentarios
@@ -230,6 +231,17 @@ class DashboardController extends Controller
 
         if ($document->disco === 'gdrive') {
             return redirect()->away($document->ruta);
+        }
+
+        // Los borradores IA se guardan como HTML: abiertos en el navegador el
+        // cliente veia el texto suelto con los # del markdown. Se le da en Word.
+        if (MensajeWord::esHtml($document)) {
+            $docx = app(MensajeWord::class)->desdeHtml($document);
+
+            return response($docx['contenido'], 200, [
+                'Content-Type' => MensajeWord::MIME,
+                'Content-Disposition' => 'attachment; filename="'.addslashes($docx['nombre']).'"',
+            ]);
         }
 
         $disk = Storage::disk($document->disco ?? 'local');
