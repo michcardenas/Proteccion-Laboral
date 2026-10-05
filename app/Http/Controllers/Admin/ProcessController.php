@@ -282,6 +282,7 @@ class ProcessController extends Controller
                         'nombre' => $d->nombre,
                         'url' => route('admin.documents.download', $d->id),
                     ]),
+                    'word_url' => route('admin.comments.word', $c->id),
                 ]),
                 'visits' => $process->visits->map(fn ($v) => [
                     'id' => $v->id,

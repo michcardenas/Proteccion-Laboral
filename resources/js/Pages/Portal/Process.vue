@@ -199,10 +199,27 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { d
                         >
                             {{ abiertos.has(m.id) ? 'Ocultar mensaje' : 'Ver mensaje' }}
                         </button>
-                        <p v-if="abiertos.has(m.id)" class="mt-2 whitespace-pre-line border-t border-brand-100 pt-2 text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                        <template v-if="abiertos.has(m.id)">
+                            <p class="mt-2 whitespace-pre-line border-t border-brand-100 pt-2 text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                            <a :href="m.word_url" class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-500 transition hover:text-accent-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                                Descargar este mensaje en Word
+                            </a>
+                        </template>
                     </template>
 
-                    <p v-else class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                    <template v-else>
+                        <p class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                        <div class="mt-3 border-t border-brand-100 pt-3">
+                            <a
+                                :href="m.word_url"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-brand-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-700"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                                Descargar en Word
+                            </a>
+                        </div>
+                    </template>
                 </li>
             </ul>
         </section>
