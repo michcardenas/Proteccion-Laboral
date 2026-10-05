@@ -120,6 +120,52 @@ class DocumentController extends Controller
             : 'El comentario ya no es visible para el cliente.');
     }
 
+    /**
+     * Adjunta archivos a un mensaje ya registrado. Los Word que el despacho
+     * mando a mano por Gmail nunca pasaron por la plataforma: asi aparecen
+     * bajo su mensaje en el portal. Heredan la visibilidad del mensaje.
+     */
+    public function attachToComment(Request $request, Comment $comment): RedirectResponse
+    {
+        $process = $comment->commentable;
+        abort_unless($process instanceof Process, 404);
+        $this->authorizeProcessAccess($request, $process);
+
+        $data = $request->validate([
+            'archivos' => ['required', 'array', 'min:1', 'max:10'],
+            'archivos.*' => ['file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,webp,txt'],
+        ], [
+            // La app no tiene traducciones: sin esto sale el mensaje en inglés.
+            'archivos.*.mimes' => 'Solo se admiten Word, PDF, Excel, imágenes o texto (:attribute no lo es o está dañado).',
+            'archivos.*.max' => 'Cada archivo puede pesar como mucho 20 MB.',
+            'archivos.max' => 'Como mucho 10 archivos a la vez.',
+        ], [
+            'archivos.*' => 'el archivo',
+        ]);
+
+        foreach ($data['archivos'] as $archivo) {
+            Document::create([
+                'process_id' => $process->id,
+                'client_id' => $process->client_id,
+                'comment_id' => $comment->id,
+                'nombre' => $archivo->getClientOriginalName(),
+                'ruta' => $archivo->store("documents/process_{$process->id}", 'local'),
+                'disco' => 'local',
+                'tipo' => 'comunicacion',
+                'mime' => $archivo->getClientMimeType(),
+                'tamano_bytes' => $archivo->getSize(),
+                'generado_por_ia' => false,
+                'subido_por' => $request->user()->id,
+                'visible_cliente' => $comment->visible_cliente,
+            ]);
+        }
+
+        $n = count($data['archivos']);
+
+        return back()->with('success', ($n === 1 ? 'Archivo adjuntado' : "{$n} archivos adjuntados").' al mensaje'
+            .($comment->visible_cliente ? '; el cliente ya los ve en el portal.' : '.'));
+    }
+
     private function authorizeProcessAccess(Request $request, ?Process $process): void
     {
         abort_unless($process !== null, 404);

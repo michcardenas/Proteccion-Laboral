@@ -161,6 +161,10 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:documents.share_with_client')
             ->patch('comments/{comment}/visibility', [DocumentController::class, 'commentVisibility'])
             ->name('comments.visibility');
+        // Colgar a un mensaje ya enviado el Word que se mando aparte por Gmail.
+        Route::middleware('permission:documents.upload')
+            ->post('comments/{comment}/documents', [DocumentController::class, 'attachToComment'])
+            ->name('comments.documents.store');
 
         Route::middleware('permission:processes.create')->group(function () {
             Route::get('processes/create/new', [ProcessController::class, 'create'])->name('processes.create');

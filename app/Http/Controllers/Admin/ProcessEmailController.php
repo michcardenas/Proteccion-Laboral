@@ -84,6 +84,10 @@ class ProcessEmailController extends Controller
             'visible_cliente' => ['sometimes', 'boolean'],
             'adjuntos' => ['sometimes', 'array', 'max:10'],
             'adjuntos.*' => ['file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,webp,txt'],
+        ], [
+            'adjuntos.*.mimes' => 'Solo se pueden adjuntar Word, PDF, Excel, imágenes o texto.',
+            'adjuntos.*.max' => 'Cada adjunto puede pesar como mucho 20 MB.',
+            'adjuntos.max' => 'Como mucho 10 adjuntos por correo.',
         ]);
 
         $to = $this->extractEmail($data['to']);

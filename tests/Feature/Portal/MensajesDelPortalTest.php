@@ -10,6 +10,8 @@ use App\Models\ServiceType;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -122,6 +124,70 @@ class MensajesDelPortalTest extends TestCase
         $this->actingAs($this->abogada)
             ->patch(route('admin.comments.visibility', $c), ['visible_cliente' => false]);
         $this->assertFalse($doc->fresh()->visible_cliente);
+    }
+
+    public function test_adjuntar_a_un_mensaje_ya_enviado_el_word_que_se_mando_por_gmail(): void
+    {
+        Storage::fake('local');
+        $c = $this->comentario(true, 'Le enviamos el concepto');
+
+        $this->actingAs($this->abogada)
+            ->post(route('admin.comments.documents.store', $c), [
+                'archivos' => [UploadedFile::fake()->create('Concepto.docx', 30)],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $doc = Document::sole();
+        $this->assertSame($c->id, $doc->comment_id);
+        $this->assertSame($this->process->id, $doc->process_id);
+        // Hereda la visibilidad del mensaje: el cliente lo ve ya.
+        $this->assertTrue($doc->visible_cliente);
+        Storage::disk('local')->assertExists($doc->ruta);
+
+        $this->actingAs($this->client, 'client')
+            ->get(route('portal.process', $this->process))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('process.mensajes.0.adjuntos.0.nombre', 'Concepto.docx'));
+    }
+
+    public function test_adjuntar_a_un_mensaje_interno_lo_deja_oculto(): void
+    {
+        Storage::fake('local');
+        $c = $this->comentario(false, 'Nota interna');
+
+        $this->actingAs($this->abogada)
+            ->post(route('admin.comments.documents.store', $c), [
+                'archivos' => [UploadedFile::fake()->create('borrador.docx', 30)],
+            ]);
+
+        $this->assertFalse(Document::sole()->visible_cliente);
+    }
+
+    public function test_adjuntar_rechaza_formatos_no_admitidos(): void
+    {
+        Storage::fake('local');
+        $c = $this->comentario(true, 'x');
+
+        $this->actingAs($this->abogada)
+            ->post(route('admin.comments.documents.store', $c), [
+                'archivos' => [UploadedFile::fake()->create('script.exe', 10)],
+            ])
+            ->assertSessionHasErrors(['archivos.0' => 'Solo se admiten Word, PDF, Excel, imágenes o texto (el archivo no lo es o está dañado).']);
+
+        $this->assertSame(0, Document::count());
+    }
+
+    public function test_quien_no_sube_documentos_no_adjunta(): void
+    {
+        $c = $this->comentario(true, 'x');
+        $sinRol = User::factory()->create();
+
+        $this->actingAs($sinRol)
+            ->post(route('admin.comments.documents.store', $c), [
+                'archivos' => [UploadedFile::fake()->create('a.docx', 10)],
+            ])
+            ->assertForbidden();
     }
 
     public function test_quien_no_comparte_documentos_tampoco_comparte_comentarios(): void
