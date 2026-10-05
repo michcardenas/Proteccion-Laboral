@@ -203,6 +203,15 @@ class EmailRouter
             return;
         }
 
+        // Lo que manda el propio despacho es un mensaje para el cliente, con
+        // su Word, no un correo entrante que resumir.
+        $despacho = app(CorreoDelDespacho::class);
+        if ($despacho->esDelDespacho($ingestion)) {
+            $despacho->registrar($process, $ingestion);
+
+            return;
+        }
+
         $userId = $this->systemUserId($process);
         if (! $userId) {
             return; // sin un autor válido no podemos crear el comentario
@@ -230,6 +239,14 @@ class EmailRouter
      */
     protected function attachAttachmentsAsDocuments(Process $process, EmailIngestion $ingestion): void
     {
+        // Los del despacho cuelgan de su mensaje (CorreoDelDespacho::registrar).
+        $despacho = app(CorreoDelDespacho::class);
+        if ($despacho->esDelDespacho($ingestion)) {
+            $despacho->registrar($process, $ingestion);
+
+            return;
+        }
+
         $attachments = $ingestion->raw_payload['attachments'] ?? [];
 
         foreach ($attachments as $att) {

@@ -212,12 +212,7 @@ class ProcessController extends Controller
                     'nit' => $process->client->nit,
                     // Correos del cliente: una respuesta dirigida a ellos se
                     // marca visible en el portal por defecto.
-                    'emails' => collect([$process->client->email])
-                        ->merge($process->client->contactos()->pluck('email'))
-                        ->filter()
-                        ->map(fn ($e) => mb_strtolower(trim($e)))
-                        ->unique()
-                        ->values(),
+                    'emails' => $process->client->correos(),
                 ] : null,
                 'service' => $process->serviceType ? [
                     'nombre' => $process->serviceType->nombre,
