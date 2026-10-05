@@ -236,6 +236,27 @@ class GmailServiceTest extends TestCase
         $this->assertStringContainsString("\r\n\r\nEstimado cliente, confirmamos recepción.", $mime);
     }
 
+    public function test_build_raw_message_with_attachments_is_multipart(): void
+    {
+        $word = "PK\x03\x04 contenido binario del docx";
+        $mime = (new GmailService)->buildMimeMessage('a@b.com', 'Re: Caso', 'Adjunto el concepto.', '<orig@x>', [
+            ['filename' => 'Concepto jurídico.docx', 'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'content' => $word],
+        ]);
+
+        $this->assertMatchesRegularExpression('/Content-Type: multipart\/mixed; boundary="(pl_[0-9a-f]+)"/', $mime);
+        preg_match('/boundary="(pl_[0-9a-f]+)"/', $mime, $m);
+        $boundary = $m[1];
+
+        // Cabeceras arriba, cuerpo de texto como primera parte.
+        $this->assertStringContainsString('In-Reply-To: <orig@x>', $mime);
+        $this->assertStringContainsString("--{$boundary}\r\nContent-Type: text/plain; charset=UTF-8", $mime);
+        $this->assertStringContainsString("\r\n\r\nAdjunto el concepto.", $mime);
+        // Nombre con tilde codificado; contenido en base64; cierre del multipart.
+        $this->assertStringContainsString('Content-Disposition: attachment; filename="=?UTF-8?B?'.base64_encode('Concepto jurídico.docx').'?="', $mime);
+        $this->assertStringContainsString(base64_encode($word), $mime);
+        $this->assertStringEndsWith("--{$boundary}--", $mime);
+    }
+
     public function test_build_raw_message_without_threading_omits_reply_headers(): void
     {
         $encoded = (new GmailService)->buildRawMessage('a@b.com', 'Hola', 'Cuerpo');

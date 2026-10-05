@@ -43,6 +43,27 @@ function alternarVisibilidadComentario(c) {
     );
 }
 
+// Adjuntar al mensaje el Word que se envio aparte (por Gmail, a mano).
+const adjuntandoComentario = ref(null);
+const errorAdjunto = ref({});
+function adjuntarAComentario(c, e) {
+    const archivos = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!archivos.length) return;
+    adjuntandoComentario.value = c.id;
+    errorAdjunto.value = { ...errorAdjunto.value, [c.id]: null };
+    router.post(
+        route('admin.comments.documents.store', c.id),
+        { archivos },
+        {
+            preserveScroll: true,
+            forceFormData: true,
+            onError: (errs) => (errorAdjunto.value = { ...errorAdjunto.value, [c.id]: Object.values(errs).join(' ') }),
+            onFinish: () => (adjuntandoComentario.value = null),
+        },
+    );
+}
+
 const tabs = [
     { key: 'tablero', label: 'Tablero de etapas' },
     { key: 'detalle', label: 'Detalle' },
@@ -1133,8 +1154,40 @@ const isLate = (stage) => {
                             >
                                 {{ c.visible_cliente ? 'Dejar de compartir' : 'Compartir con el cliente' }}
                             </button>
+                            <label
+                                v-if="can('documents.upload')"
+                                :class="[
+                                    'shrink-0 cursor-pointer rounded-md border border-brand-200 bg-white px-3 py-1 text-xs font-medium text-brand-700 transition hover:border-accent-300 hover:text-accent-700',
+                                    { 'pointer-events-none opacity-50': adjuntandoComentario === c.id },
+                                    { 'ml-auto': !can('documents.share_with_client') },
+                                ]"
+                                title="Adjunta el Word o PDF que se envió aparte por correo; el cliente lo verá bajo este mensaje si está compartido."
+                            >
+                                {{ adjuntandoComentario === c.id ? 'Subiendo…' : 'Adjuntar a este mensaje' }}
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.txt"
+                                    class="hidden"
+                                    @change="adjuntarAComentario(c, $event)"
+                                />
+                            </label>
                         </div>
+                        <p v-if="errorAdjunto[c.id]" class="mt-1 text-xs text-danger-600">{{ errorAdjunto[c.id] }}</p>
                         <p class="mt-1 whitespace-pre-line text-sm text-brand-700">{{ c.body }}</p>
+                        <div v-if="c.adjuntos && c.adjuntos.length" class="mt-2 flex flex-wrap gap-2">
+                            <a
+                                v-for="d in c.adjuntos"
+                                :key="d.id"
+                                :href="d.url"
+                                target="_blank"
+                                rel="noopener"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 transition hover:text-accent-700 hover:ring-accent-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                                {{ d.nombre }}
+                            </a>
+                        </div>
                     </li>
                 </ul>
             </section>

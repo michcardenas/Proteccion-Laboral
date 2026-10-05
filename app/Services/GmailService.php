@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\IntegrationToken;
 use Google\Client as GoogleClient;
+use Google\Http\MediaFileUpload;
 use Google\Service\Gmail;
 use Google\Service\Gmail\Label;
 use Google\Service\Gmail\Message as GmailMessage;
@@ -231,39 +232,94 @@ class GmailService
      * @param  array  $params  [
      *                         'to' => string (requerido), 'subject' => string (requerido), 'body' => string (requerido),
      *                         'thread_id' => ?string (para responder en el mismo hilo),
-     *                         'in_reply_to' => ?string (Message-ID original, para In-Reply-To/References)
+     *                         'in_reply_to' => ?string (Message-ID original, para In-Reply-To/References),
+     *                         'attachments' => ?array<{filename, mime, content}> (contenido binario en claro)
      *                         ]
      * @return string Id del mensaje enviado.
      */
     public function sendReply(array $params): string
     {
-        $raw = $this->buildRawMessage(
+        $mime = $this->buildMimeMessage(
             $params['to'],
             $params['subject'],
             $params['body'],
             $params['in_reply_to'] ?? null,
+            $params['attachments'] ?? [],
         );
 
-        $message = new GmailMessage(['raw' => $raw]);
+        $message = new GmailMessage;
         if (! empty($params['thread_id'])) {
             $message->setThreadId($params['thread_id']);
         }
 
-        return $this->gmail()->users_messages->send('me', $message)->getId();
+        $gmail = $this->gmail();
+
+        // Un Word o un PDF escaneado pasan facil del limite de una peticion
+        // normal (~5 MB, y `raw` en base64 engorda un tercio): por encima se
+        // sube por partes, como un fichero.
+        if (strlen($mime) > self::RAW_MAX_BYTES) {
+            return $this->sendResumable($gmail, $message, $mime);
+        }
+
+        $message->setRaw($this->base64url($mime));
+
+        return $gmail->users_messages->send('me', $message)->getId();
+    }
+
+    /** Tamaño del MIME a partir del cual se envia por subida reanudable. */
+    public const RAW_MAX_BYTES = 3 * 1024 * 1024;
+
+    /** Gmail rechaza mensajes de mas de 25 MB; adjuntos en base64 crecen 4/3. */
+    public const ATTACHMENTS_MAX_BYTES = 18 * 1024 * 1024;
+
+    protected function sendResumable(Gmail $gmail, GmailMessage $message, string $mime): string
+    {
+        $client = $this->client();
+        $client->setDefer(true);
+        try {
+            $request = $gmail->users_messages->send('me', $message, ['uploadType' => 'resumable']);
+        } finally {
+            $client->setDefer(false);
+        }
+
+        $chunk = 2 * 1024 * 1024; // multiplo de 256 KB, como exige Google
+        $upload = new MediaFileUpload($client, $request, 'message/rfc822', null, true, $chunk);
+        $upload->setFileSize(strlen($mime));
+
+        $sent = false;
+        for ($offset = 0; $sent === false && $offset < strlen($mime); $offset += $chunk) {
+            $sent = $upload->nextChunk(substr($mime, $offset, $chunk));
+        }
+
+        if (! $sent instanceof GmailMessage) {
+            throw new RuntimeException('Gmail no confirmó el envío del correo con adjuntos.');
+        }
+
+        return $sent->getId();
     }
 
     /**
-     * Construye un mensaje MIME (texto plano UTF-8) y lo codifica en base64url,
-     * como exige la API de Gmail. Método puro: testeable sin tocar la red.
+     * Mensaje MIME codificado en base64url, como exige `raw` en la API de Gmail.
+     * Método puro: testeable sin tocar la red.
+     *
+     * @param  array<int, array{filename: string, mime: string, content: string}>  $attachments
      */
-    public function buildRawMessage(string $to, string $subject, string $body, ?string $inReplyTo = null): string
+    public function buildRawMessage(string $to, string $subject, string $body, ?string $inReplyTo = null, array $attachments = []): string
+    {
+        return $this->base64url($this->buildMimeMessage($to, $subject, $body, $inReplyTo, $attachments));
+    }
+
+    /**
+     * Mensaje MIME: texto plano UTF-8 o, con adjuntos, multipart/mixed.
+     *
+     * @param  array<int, array{filename: string, mime: string, content: string}>  $attachments
+     */
+    public function buildMimeMessage(string $to, string $subject, string $body, ?string $inReplyTo = null, array $attachments = []): string
     {
         $headers = [
             'To: '.$to,
             'Subject: '.$this->encodeHeader($subject),
             'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=UTF-8',
-            'Content-Transfer-Encoding: 8bit',
         ];
 
         // Enhebra la respuesta con el correo original.
@@ -274,9 +330,32 @@ class GmailService
             ]);
         }
 
-        $mime = implode("\r\n", $headers)."\r\n\r\n".$body;
+        $crlf = "\r\n";
+        $texto = 'Content-Type: text/plain; charset=UTF-8'.$crlf.'Content-Transfer-Encoding: 8bit';
 
-        return rtrim(strtr(base64_encode($mime), '+/', '-_'), '=');
+        if (! $attachments) {
+            return implode($crlf, $headers).$crlf.$texto.$crlf.$crlf.$body;
+        }
+
+        $boundary = 'pl_'.bin2hex(random_bytes(12));
+        $headers[] = 'Content-Type: multipart/mixed; boundary="'.$boundary.'"';
+
+        $partes = ['--'.$boundary.$crlf.$texto.$crlf.$crlf.$body];
+        foreach ($attachments as $adjunto) {
+            $nombre = $this->encodeHeader(str_replace(['"', "\r", "\n"], '', $adjunto['filename']));
+            $partes[] = '--'.$boundary.$crlf
+                .'Content-Type: '.($adjunto['mime'] ?: 'application/octet-stream').'; name="'.$nombre.'"'.$crlf
+                .'Content-Disposition: attachment; filename="'.$nombre.'"'.$crlf
+                .'Content-Transfer-Encoding: base64'.$crlf.$crlf
+                .rtrim(chunk_split(base64_encode($adjunto['content']), 76, $crlf));
+        }
+
+        return implode($crlf, $headers).$crlf.$crlf.implode($crlf, $partes).$crlf.'--'.$boundary.'--';
+    }
+
+    protected function base64url(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
 
     /**
