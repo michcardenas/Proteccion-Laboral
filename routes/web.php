@@ -152,6 +152,8 @@ Route::middleware(['auth', 'verified'])
             Route::get('processes/{process}', [ProcessController::class, 'show'])->name('processes.show');
             // Abrir/descargar un documento del proceso (adjunto de correo, borrador IA o enlace de Drive).
             Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
+            // Un mensaje del proceso convertido en Word (lo mismo que descarga el cliente).
+            Route::get('comments/{comment}/word', [DocumentController::class, 'commentWord'])->name('comments.word');
         });
 
         // Compartir o dejar de compartir un documento con el cliente despues de subirlo.
@@ -345,6 +347,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::get('/', [PortalDashboardController::class, 'index'])->name('dashboard');
         Route::get('procesos/{process}', [PortalDashboardController::class, 'show'])->name('process');
         Route::get('documentos/{document}/download', [PortalDashboardController::class, 'downloadDocument'])->name('documents.download');
+        Route::get('mensajes/{comment}/word', [PortalDashboardController::class, 'messageWord'])->name('messages.word');
         Route::post('logout', [ClientSessionController::class, 'destroy'])->name('logout');
     });
 });

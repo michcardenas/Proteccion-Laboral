@@ -1175,6 +1175,14 @@ const isLate = (stage) => {
                         </div>
                         <p v-if="errorAdjunto[c.id]" class="mt-1 text-xs text-danger-600">{{ errorAdjunto[c.id] }}</p>
                         <p class="mt-1 whitespace-pre-line text-sm text-brand-700">{{ c.body }}</p>
+                        <a
+                            :href="c.word_url"
+                            class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-500 transition hover:text-accent-700"
+                            title="El mismo Word que descarga el cliente desde el portal."
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                            Ver en Word
+                        </a>
                         <div v-if="c.adjuntos && c.adjuntos.length" class="mt-2 flex flex-wrap gap-2">
                             <a
                                 v-for="d in c.adjuntos"

@@ -7,6 +7,7 @@ use App\Models\Comment;
 use App\Models\Document;
 use App\Models\Process;
 use App\Models\User;
+use App\Services\MensajeWord;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -164,6 +165,23 @@ class DocumentController extends Controller
 
         return back()->with('success', ($n === 1 ? 'Archivo adjuntado' : "{$n} archivos adjuntados").' al mensaje'
             .($comment->visible_cliente ? '; el cliente ya los ve en el portal.' : '.'));
+    }
+
+    /**
+     * El mensaje en Word, tal como lo descarga el cliente desde el portal.
+     */
+    public function commentWord(Request $request, Comment $comment, MensajeWord $word)
+    {
+        $process = $comment->commentable;
+        abort_unless($process instanceof Process, 404);
+        $this->authorizeProcessAccess($request, $process);
+
+        $docx = $word->generar($comment, $process);
+
+        return response($docx['contenido'], 200, [
+            'Content-Type' => MensajeWord::MIME,
+            'Content-Disposition' => 'attachment; filename="'.addslashes($docx['nombre']).'"',
+        ]);
     }
 
     private function authorizeProcessAccess(Request $request, ?Process $process): void

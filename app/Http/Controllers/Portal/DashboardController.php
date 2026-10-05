@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Comment;
 use App\Models\Document;
 use App\Models\Process;
+use App\Services\MensajeWord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -166,6 +168,7 @@ class DashboardController extends Controller
                     'body' => $c->body,
                     'autor' => $c->user?->name,
                     'fecha' => $c->created_at?->toIso8601String(),
+                    'word_url' => route('portal.messages.word', $c->id),
                     'adjuntos' => $c->documents->map(fn (Document $d) => [
                         'id' => $d->id,
                         'nombre' => $d->nombre,
@@ -187,6 +190,29 @@ class DashboardController extends Controller
                     ]),
                 ]),
             ],
+        ]);
+    }
+
+    /**
+     * Un mensaje del despacho convertido en Word. Solo los compartidos y de
+     * un proceso del propio cliente.
+     */
+    public function messageWord(Comment $comment, MensajeWord $word)
+    {
+        /** @var Client $client */
+        $client = Auth::guard('client')->user();
+
+        $process = $comment->commentable;
+        abort_unless(
+            $process instanceof Process && $process->client_id === $client->id && $comment->visible_cliente,
+            403,
+        );
+
+        $docx = $word->generar($comment, $process);
+
+        return response($docx['contenido'], 200, [
+            'Content-Type' => MensajeWord::MIME,
+            'Content-Disposition' => 'attachment; filename="'.addslashes($docx['nombre']).'"',
         ]);
     }
 
