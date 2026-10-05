@@ -153,7 +153,7 @@ class ProcessController extends Controller
             'stages' => fn ($q) => $q->with(['responsable:id,name', 'checklistResponses.completador:id,name'])->orderBy('orden'),
             'tasks' => fn ($q) => $q->with('asignado:id,name')->latest(),
             'documents' => fn ($q) => $q->with('uploader:id,name')->latest(),
-            'comments' => fn ($q) => $q->with('user:id,name')->latest(),
+            'comments' => fn ($q) => $q->with(['user:id,name', 'documents:id,comment_id,nombre'])->latest(),
             'visits' => fn ($q) => $q->with(['registradaPor:id,name', 'asistentes:id,name', 'documents'])->orderByDesc('fecha'),
             'emailIngestions' => fn ($q) => $q->orderByDesc('received_at'),
             'payments' => fn ($q) => $q->with(['registradoPor:id,name', 'documents'])->orderByDesc('fecha_pago'),
@@ -277,6 +277,11 @@ class ProcessController extends Controller
                     'visible_cliente' => (bool) $c->visible_cliente,
                     'user' => $c->user?->name,
                     'created_at' => $c->created_at?->toIso8601String(),
+                    'adjuntos' => $c->documents->map(fn ($d) => [
+                        'id' => $d->id,
+                        'nombre' => $d->nombre,
+                        'url' => route('admin.documents.download', $d->id),
+                    ]),
                 ]),
                 'visits' => $process->visits->map(fn ($v) => [
                     'id' => $v->id,

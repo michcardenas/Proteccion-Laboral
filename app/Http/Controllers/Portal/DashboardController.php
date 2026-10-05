@@ -73,12 +73,14 @@ class DashboardController extends Controller
             'payments' => fn ($q) => $q->orderByDesc('fecha_pago'),
             // Respuestas y comunicaciones que el despacho marco como visibles.
             'comments' => fn ($q) => $q->where('visible_cliente', true)
-                ->with('user:id,name')
+                ->with(['user:id,name', 'documents' => fn ($d) => $d->where('visible_cliente', true)])
                 ->latest(),
             // Las actas de visita se enseñan dentro de su visita, no aqui.
             'documents' => fn ($q) => $q->where('visible_cliente', true)
                 ->whereNull('visit_id')
                 ->latest(),
+            // Los adjuntos de un mensaje salen con su mensaje, y tambien aqui:
+            // es donde el cliente busca «los documentos».
         ]);
 
         // Lo compartido a nivel cliente (contrato, diagnostico): vale para todos
@@ -164,6 +166,11 @@ class DashboardController extends Controller
                     'body' => $c->body,
                     'autor' => $c->user?->name,
                     'fecha' => $c->created_at?->toIso8601String(),
+                    'adjuntos' => $c->documents->map(fn (Document $d) => [
+                        'id' => $d->id,
+                        'nombre' => $d->nombre,
+                        'url' => route('portal.documents.download', $d->id),
+                    ])->values(),
                 ])->values(),
                 'visits' => $process->visits->map(fn ($v) => [
                     'id' => $v->id,

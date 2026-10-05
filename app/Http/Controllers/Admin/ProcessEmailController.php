@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\GenerateAiDraft;
 use App\Models\AiGeneration;
+use App\Models\Document;
 use App\Models\EmailIngestion;
 use App\Models\Process;
 use App\Services\GmailService;
 use App\Services\ProcessContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
 
@@ -66,6 +68,9 @@ class ProcessEmailController extends Controller
     /**
      * POST /admin/processes/{process}/emails/{ingestion}/reply
      * Envía la respuesta vía Gmail y la registra como comentario del proceso.
+     * Los adjuntos (el Word, el PDF) salen en el correo y se guardan como
+     * documentos del proceso colgados del comentario: si el comentario es
+     * visible, el cliente los descarga en el portal junto al mensaje.
      */
     public function reply(Request $request, Process $process, EmailIngestion $ingestion): JsonResponse
     {
@@ -77,11 +82,19 @@ class ProcessEmailController extends Controller
             'subject' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:20000'],
             'visible_cliente' => ['sometimes', 'boolean'],
+            'adjuntos' => ['sometimes', 'array', 'max:10'],
+            'adjuntos.*' => ['file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,webp,txt'],
         ]);
 
         $to = $this->extractEmail($data['to']);
         if (! $to) {
             return response()->json(['error' => 'El destinatario no es un correo válido.'], 422);
+        }
+
+        /** @var UploadedFile[] $archivos */
+        $archivos = $data['adjuntos'] ?? [];
+        if (array_sum(array_map(fn (UploadedFile $f) => $f->getSize(), $archivos)) > GmailService::ATTACHMENTS_MAX_BYTES) {
+            return response()->json(['error' => 'Los adjuntos suman más de 18 MB: Gmail no admite un correo tan grande.'], 422);
         }
 
         $payload = $ingestion->raw_payload ?? [];
@@ -100,6 +113,11 @@ class ProcessEmailController extends Controller
                 'body' => $data['body'],
                 'thread_id' => $payload['thread_id'] ?? null,
                 'in_reply_to' => $payload['message_id_header'] ?? null,
+                'attachments' => array_map(fn (UploadedFile $f) => [
+                    'filename' => $f->getClientOriginalName(),
+                    'mime' => $f->getClientMimeType(),
+                    'content' => $f->get(),
+                ], $archivos),
             ]);
         } catch (Throwable $e) {
             report($e);
@@ -111,11 +129,31 @@ class ProcessEmailController extends Controller
         }
 
         // Deja constancia en el historial del proceso.
-        $process->comments()->create([
+        $visible = $data['visible_cliente'] ?? false;
+        $comment = $process->comments()->create([
             'user_id' => Auth::id(),
             'body' => "📧 Respuesta enviada a {$to}\nAsunto: {$data['subject']}\n\n{$data['body']}",
-            'visible_cliente' => $data['visible_cliente'] ?? false,
+            'visible_cliente' => $visible,
         ]);
+
+        // Se guardan despues del envio: si Gmail falla no quedan documentos
+        // de un correo que nunca salio.
+        foreach ($archivos as $archivo) {
+            Document::create([
+                'process_id' => $process->id,
+                'client_id' => $process->client_id,
+                'comment_id' => $comment->id,
+                'nombre' => $archivo->getClientOriginalName(),
+                'ruta' => $archivo->store("documents/process_{$process->id}", 'local'),
+                'disco' => 'local',
+                'tipo' => 'comunicacion',
+                'mime' => $archivo->getClientMimeType(),
+                'tamano_bytes' => $archivo->getSize(),
+                'generado_por_ia' => false,
+                'subido_por' => Auth::id(),
+                'visible_cliente' => $visible,
+            ]);
+        }
 
         // Marca el correo como respondido (para la bandeja del tablero Kanban).
         $ingestion->forceFill(['respondido_at' => now()])->save();

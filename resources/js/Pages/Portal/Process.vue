@@ -142,6 +142,19 @@ const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { d
                         {{ formatDateTime(m.fecha) }}<span v-if="m.autor"> · {{ m.autor }}</span>
                     </p>
                     <p class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-brand-700">{{ textoLimpio(m.body) }}</p>
+                    <div v-if="m.adjuntos && m.adjuntos.length" class="mt-3 flex flex-wrap gap-2 border-t border-brand-100 pt-3">
+                        <a
+                            v-for="d in m.adjuntos"
+                            :key="d.id"
+                            :href="d.url"
+                            target="_blank"
+                            rel="noopener"
+                            class="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 transition hover:text-accent-700 hover:ring-accent-300"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                            {{ d.nombre }}
+                        </a>
+                    </div>
                 </li>
             </ul>
         </section>

@@ -111,6 +111,9 @@ class DocumentController extends Controller
         $data = $request->validate(['visible_cliente' => ['required', 'boolean']]);
 
         $comment->update(['visible_cliente' => $data['visible_cliente']]);
+        // Sus adjuntos van con el: compartir el mensaje sin el Word que lo
+        // acompaña es justo lo que el cliente echaba en falta.
+        $comment->documents()->update(['visible_cliente' => $data['visible_cliente']]);
 
         return back()->with('success', $comment->visible_cliente
             ? 'El comentario ahora es visible para el cliente.'

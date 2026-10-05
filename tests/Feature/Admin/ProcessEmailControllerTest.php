@@ -11,10 +11,13 @@ use App\Models\ServiceType;
 use App\Models\User;
 use App\Services\GmailService;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use App\Models\Document;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Tests\TestCase;
 
@@ -92,6 +95,94 @@ class ProcessEmailControllerTest extends TestCase
             'commentable_type' => Process::class,
             'commentable_id' => $process->id,
         ]);
+    }
+
+    public function test_reply_con_adjuntos_los_envia_y_los_comparte_en_el_portal(): void
+    {
+        Storage::fake('local');
+
+        $mock = Mockery::mock(GmailService::class);
+        $mock->shouldReceive('sendReply')->once()
+            ->with(Mockery::on(fn ($p) => count($p['attachments']) === 1
+                && $p['attachments'][0]['filename'] === 'Concepto.docx'
+                && is_string($p['attachments'][0]['content'])))
+            ->andReturn('sent-123');
+        $mock->shouldReceive('markAsRead', 'addLabel')->andReturnNull();
+        $this->app->instance(GmailService::class, $mock);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('abogado_interno');
+        $process = $this->makeProcess();
+        $email = $this->makeEmail($process);
+
+        $this->actingAs($user)->post(
+            route('admin.processes.emails.reply', [$process, $email]),
+            [
+                'to' => 'contacto@cliente.com', 'subject' => 'Re: Consulta', 'body' => 'Adjunto el concepto.',
+                'visible_cliente' => '1',
+                'adjuntos' => [UploadedFile::fake()->create('Concepto.docx', 40, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')],
+            ],
+            ['Accept' => 'application/json'],
+        )->assertStatus(201);
+
+        $doc = Document::sole();
+        $this->assertSame('Concepto.docx', $doc->nombre);
+        $this->assertSame($process->id, $doc->process_id);
+        $this->assertTrue($doc->visible_cliente);
+        $this->assertNotNull($doc->comment_id);
+        $this->assertSame($process->comments()->sole()->id, $doc->comment_id);
+        Storage::disk('local')->assertExists($doc->ruta);
+    }
+
+    public function test_reply_rechaza_adjuntos_que_gmail_no_admite_sin_enviar(): void
+    {
+        Storage::fake('local');
+
+        $mock = Mockery::mock(GmailService::class);
+        $mock->shouldNotReceive('sendReply');
+        $this->app->instance(GmailService::class, $mock);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('abogado_interno');
+        $process = $this->makeProcess();
+        $email = $this->makeEmail($process);
+
+        $this->actingAs($user)->post(
+            route('admin.processes.emails.reply', [$process, $email]),
+            [
+                'to' => 'contacto@cliente.com', 'subject' => 'Re', 'body' => 'x',
+                'adjuntos' => [
+                    UploadedFile::fake()->create('a.pdf', 10 * 1024, 'application/pdf'),
+                    UploadedFile::fake()->create('b.pdf', 10 * 1024, 'application/pdf'),
+                ],
+            ],
+            ['Accept' => 'application/json'],
+        )->assertStatus(422);
+
+        $this->assertSame(0, Document::count());
+        $this->assertSame(0, $process->comments()->count());
+    }
+
+    public function test_si_gmail_falla_no_quedan_documentos(): void
+    {
+        Storage::fake('local');
+
+        $mock = Mockery::mock(GmailService::class);
+        $mock->shouldReceive('sendReply')->andThrow(new \RuntimeException('caido'));
+        $this->app->instance(GmailService::class, $mock);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole('abogado_interno');
+        $process = $this->makeProcess();
+        $email = $this->makeEmail($process);
+
+        $this->actingAs($user)->post(
+            route('admin.processes.emails.reply', [$process, $email]),
+            ['to' => 'contacto@cliente.com', 'subject' => 'Re', 'body' => 'x', 'adjuntos' => [UploadedFile::fake()->create('a.docx', 10)]],
+            ['Accept' => 'application/json'],
+        )->assertStatus(502);
+
+        $this->assertSame(0, Document::count());
     }
 
     public function test_reply_requiere_permiso_processes_update(): void

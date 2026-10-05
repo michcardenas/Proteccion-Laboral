@@ -4,6 +4,7 @@ namespace Tests\Feature\Portal;
 
 use App\Models\Client;
 use App\Models\Comment;
+use App\Models\Document;
 use App\Models\Process;
 use App\Models\ServiceType;
 use App\Models\User;
@@ -80,6 +81,47 @@ class MensajesDelPortalTest extends TestCase
             ->patch(route('admin.comments.visibility', $c), ['visible_cliente' => false])
             ->assertRedirect();
         $this->assertFalse($c->fresh()->visible_cliente);
+    }
+
+    private function adjunto(Comment $c, bool $visible): Document
+    {
+        return Document::create([
+            'process_id' => $this->process->id,
+            'client_id' => $this->client->id,
+            'comment_id' => $c->id,
+            'nombre' => 'Concepto.docx',
+            'ruta' => 'documents/x.docx',
+            'disco' => 'local',
+            'tipo' => 'comunicacion',
+            'visible_cliente' => $visible,
+        ]);
+    }
+
+    public function test_el_mensaje_lleva_su_word_para_descargar(): void
+    {
+        $c = $this->comentario(true, 'Le enviamos el concepto');
+        $doc = $this->adjunto($c, true);
+
+        $this->actingAs($this->client, 'client')
+            ->get(route('portal.process', $this->process))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('process.mensajes.0.adjuntos', 1)
+                ->where('process.mensajes.0.adjuntos.0.nombre', 'Concepto.docx')
+                ->where('process.mensajes.0.adjuntos.0.url', route('portal.documents.download', $doc->id)));
+    }
+
+    public function test_compartir_el_mensaje_comparte_sus_adjuntos(): void
+    {
+        $c = $this->comentario(false, 'Contestación');
+        $doc = $this->adjunto($c, false);
+
+        $this->actingAs($this->abogada)
+            ->patch(route('admin.comments.visibility', $c), ['visible_cliente' => true]);
+        $this->assertTrue($doc->fresh()->visible_cliente);
+
+        $this->actingAs($this->abogada)
+            ->patch(route('admin.comments.visibility', $c), ['visible_cliente' => false]);
+        $this->assertFalse($doc->fresh()->visible_cliente);
     }
 
     public function test_quien_no_comparte_documentos_tampoco_comparte_comentarios(): void

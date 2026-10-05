@@ -18,6 +18,7 @@ class Document extends Model
         'task_id',
         'visit_id',
         'payment_id',
+        'comment_id',
         'client_id',
         'nombre',
         'ruta',

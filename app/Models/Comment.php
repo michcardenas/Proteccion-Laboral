@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Comment extends Model
@@ -37,5 +38,11 @@ class Comment extends Model
     public function emailIngestion(): BelongsTo
     {
         return $this->belongsTo(EmailIngestion::class);
+    }
+
+    /** Adjuntos enviados con este mensaje (respuesta de correo). */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class);
     }
 }
