@@ -64,6 +64,17 @@ class Client extends Authenticatable
         return $digitos !== '' ? $digitos : null;
     }
 
+    /** Correos del cliente y de sus contactos, en minúsculas. */
+    public function correos(): \Illuminate\Support\Collection
+    {
+        return collect([$this->email])
+            ->merge($this->contactos()->pluck('email'))
+            ->filter()
+            ->map(fn ($e) => mb_strtolower(trim($e)))
+            ->unique()
+            ->values();
+    }
+
     public function contactos(): HasMany
     {
         return $this->hasMany(ClientContact::class);
