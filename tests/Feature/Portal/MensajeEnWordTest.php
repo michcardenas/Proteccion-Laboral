@@ -82,8 +82,10 @@ class MensajeEnWordTest extends TestCase
         $this->assertNotFalse(simplexml_load_string($xml), 'document.xml no es XML válido');
         $this->assertStringContainsString('Empresa Demo S.A.S.', $xml);
         $this->assertStringContainsString('Asunto: Re: Citación a descargos', $xml);
-        // Markdown fuera y caracteres escapados.
-        $this->assertStringContainsString('Adjuntamos el acta &amp; los soportes.', $xml);
+        // **negrita** pasa a negrita de Word, sin asteriscos; & escapado.
+        $this->assertStringContainsString('<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">el acta</w:t></w:r>', $xml);
+        $this->assertStringContainsString(' &amp; los soportes.', $xml);
+        $this->assertStringNotContainsString('**', $xml);
         // La línea del destinatario no es parte de la carta.
         $this->assertStringNotContainsString('Respuesta enviada', $xml);
         $this->assertStringNotContainsString('📧', $xml);
@@ -99,6 +101,34 @@ class MensajeEnWordTest extends TestCase
 
         $this->assertSame('Comunicación - PL-DEMO-001.docx', $docx['nombre']);
         $this->assertStringContainsString('Concepto sobre el caso.', $this->abrir($docx['contenido'])['word/document.xml']);
+    }
+
+    public function test_un_borrador_ia_guardado_como_html_se_descarga_en_word(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $html = "<!doctype html><html><head><title>Contestación — PL-X</title></head><body>\n"
+            .nl2br(e("# BORRADOR — CARTA\n\nSeñores **BOLUGA**:\n\n- Primer punto\n---\nFin")).'</body></html>';
+        \Illuminate\Support\Facades\Storage::disk('local')->put('documents/p/b.html', $html);
+        $doc = \App\Models\Document::create([
+            'process_id' => $this->process->id, 'client_id' => $this->client->id,
+            'nombre' => 'Contestación / respuesta — PL-X', 'ruta' => 'documents/p/b.html', 'disco' => 'local',
+            'tipo' => 'escrito', 'mime' => 'text/html', 'generado_por_ia' => true, 'visible_cliente' => true,
+        ]);
+
+        $res = $this->actingAs($this->client, 'client')
+            ->get(route('portal.documents.download', $doc))
+            ->assertOk()
+            ->assertHeader('Content-Type', MensajeWord::MIME)
+            ->assertDownload('Contestación respuesta — PL-X.docx');
+
+        $xml = $this->abrir($res->getContent())['word/document.xml'];
+        $this->assertNotFalse(simplexml_load_string($xml));
+        // El título va en negrita y sin «#»; el <title> no se repite; la viñeta queda.
+        $this->assertStringContainsString('<w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">BORRADOR — CARTA</w:t>', $xml);
+        $this->assertStringNotContainsString('# ', $xml);
+        $this->assertStringNotContainsString('PL-X', $xml);
+        $this->assertStringContainsString('•  Primer punto', $xml);
+        $this->assertStringNotContainsString('&lt;br', $xml);
     }
 
     public function test_el_cliente_descarga_su_mensaje_compartido(): void
