@@ -217,6 +217,17 @@ class EmailRouter
             return; // sin un autor válido no podemos crear el comentario
         }
 
+        $process->comments()->create([
+            'user_id' => $userId,
+            'email_ingestion_id' => $ingestion->id,
+            'body' => self::notaEntrante($ingestion),
+            'visible_cliente' => false,
+        ]);
+    }
+
+    /** La nota interna con el resumen de un correo entrante. */
+    public static function notaEntrante(EmailIngestion $ingestion): string
+    {
         $c = $ingestion->ai_classification ?? [];
         $lines = ['[Correo entrante] '.($c['summary'] ?? $ingestion->subject ?? '(sin asunto)')];
         if ($ingestion->from) {
@@ -226,12 +237,7 @@ class EmailRouter
             $lines[] = 'Clasificación IA: '.$c['action'].(isset($c['confidence']) ? ' ('.$c['confidence'].')' : '');
         }
 
-        $process->comments()->create([
-            'user_id' => $userId,
-            'email_ingestion_id' => $ingestion->id,
-            'body' => implode("\n", $lines),
-            'visible_cliente' => false,
-        ]);
+        return implode("\n", $lines);
     }
 
     /**
